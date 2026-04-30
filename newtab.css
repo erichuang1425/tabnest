@@ -1218,6 +1218,16 @@ body[data-show-urls="off"] .item-url { display: none; }
 .hb-chip { font-size: 11px; line-height: 1; border-radius: 999px; padding: 4px 8px; border: 1px solid var(--border); color: var(--text2); background: var(--bg3); }
 .hb-chip.warn { border-color: #f59e0b55; color: #f59e0b; }
 .hb-chip.stale { border-color: #ef444455; color: #f87171; }
+.hb-chip.ok { border-color: #22c55e55; color: #4ade80; }
+.hb-chip.todo { border-color: #38bdf855; color: #7dd3fc; }
+.hb-chip.ref { border-color: #a78bfa55; color: #c4b5fd; }
+
+.triage-item { display:flex; gap:10px; align-items:flex-start; margin-bottom:12px; }
+.triage-fav { width:18px; height:18px; border-radius:4px; margin-top:2px; }
+.triage-title { font-weight:600; }
+.triage-meta { font-size:12px; color:var(--text2); margin-top:4px; }
+.triage-empty { color:var(--text2); font-size:13px; padding:18px 4px; }
+.triage-actions { flex-wrap:wrap; gap:8px; }
 .resume-section { border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: var(--bg2); margin-bottom: 10px; }
 .resume-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .resume-actions button { border: 1px solid var(--border); background: var(--bg3); color: var(--text2); border-radius: 8px; padding: 6px 10px; cursor: pointer; }

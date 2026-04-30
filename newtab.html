@@ -73,6 +73,9 @@
           <button id="tools-btn" class="icon-btn" title="Tools (Pomodoro, Finance, Subs…)">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5l2 2-3 3-2-2 3-3zM10 4l-7.5 7.5L4 13l7.5-7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
+          <button id="triage-btn" class="icon-btn" title="Tab triage">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="11.5" cy="12.5" r="1.5" fill="currentColor"/></svg>
+          </button>
           <div class="topbar-divider"></div>
           <button id="view-mode-btn" class="icon-btn" title="Toggle list view" data-mode="board">
             <svg id="view-mode-icon-board" width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="5" height="10" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="3" width="5" height="10" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>
@@ -310,6 +313,27 @@
       <div class="modal-bd" id="resume-body"></div>
       <div class="modal-ft">
         <button id="resume-close" class="btn-secondary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="triage-overlay" class="hidden">
+    <div class="rm-panel">
+      <div class="modal-hd">
+        <h2 id="triage-title">Tab Triage</h2>
+        <button id="triage-x" class="icon-btn">
+          <svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="modal-bd" id="triage-body"></div>
+      <div class="modal-ft triage-actions">
+        <button id="triage-skip" class="btn-secondary">Skip</button>
+        <button id="triage-delete" class="btn-secondary">Delete</button>
+        <button id="triage-archive" class="btn-secondary">Archive</button>
+        <button id="triage-reference" class="btn-secondary">Reference</button>
+        <button id="triage-todo" class="btn-secondary">To-do</button>
+        <button id="triage-verb" class="btn-secondary">Add verb</button>
+        <button id="triage-move" class="btn-primary">Move</button>
       </div>
     </div>
   </div>

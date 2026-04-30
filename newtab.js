@@ -127,12 +127,35 @@ function renderFutureNotePreview(entity) {
 function renderHeartbeat(entity) {
   const i = entity?.intent || {};
   const chips = [];
+  const staleDays = Number(State.get().settings?.heartbeatStaleDays) || 14;
+  const staleMs = 1000 * 60 * 60 * 24 * staleDays;
+  const tabCount = (entity?.items || []).filter(x => x.type === 'tab').length;
+  const todoCount = (entity?.items || []).filter(x => x.type === 'todo' && !x.done).length;
+  const noteCount = (entity?.items || []).filter(x => x.type === 'note').length;
+  const unresolvedFuture = getFutureNotes(entity).filter(n => !n.resolvedAt).length;
   const hasNext = !!(i.nextAction || '').trim();
   if (!hasNext) chips.push('<span class="hb-chip warn">No next action</span>');
+  if (todoCount > 0) chips.push(`<span class="hb-chip todo">${todoCount} to-do${todoCount > 1 ? 's' : ''}</span>`);
+  if ((i.status || '') === 'reference' || (i.type || '') === 'reference') chips.push('<span class="hb-chip ref">Reference</span>');
   const lastTouch = Math.max(i.updatedAt || 0, entity?.lastOpenedAt || 0);
-  const staleMs = 1000 * 60 * 60 * 24 * 7;
   if (lastTouch && (Date.now() - lastTouch) > staleMs) chips.push('<span class="hb-chip stale">Stale</span>');
+  else if (lastTouch) chips.push('<span class="hb-chip ok">Active</span>');
+  if (!lastTouch && (tabCount || todoCount || noteCount || unresolvedFuture)) chips.push('<span class="hb-chip">No activity timestamp</span>');
   return chips.length ? `<div class="heartbeat-row">${chips.join('')}</div>` : '';
+}
+
+function collectTriageCandidates() {
+  const out = [];
+  for (const ws of State.get().workspaces) for (const cat of ws.categories) for (const g of cat.groups) {
+    for (const it of g.items || []) collectTriageItem(out, it, { ws, cat, group: g, stack: null });
+  }
+  return out;
+}
+function collectTriageItem(out, it, ctx) {
+  if (it.type === 'tab') out.push({ item: it, ctx });
+  if (it.type === 'stack' && Array.isArray(it.items)) {
+    for (const sub of it.items) collectTriageItem(out, sub, { ...ctx, stack: it });
+  }
 }
 
 const activeWs = () => State.get().workspaces.find(w => w.id === State.get().activeWsId);
@@ -777,6 +800,33 @@ function openResumePanel(targetKind, targetId) {
   document.getElementById('resume-overlay').classList.remove('hidden');
 }
 function closeResumePanel() { document.getElementById('resume-overlay').classList.add('hidden'); }
+
+let triageQueue = [];
+let triageIndex = 0;
+function openTriage() {
+  triageQueue = collectTriageCandidates();
+  triageIndex = 0;
+  renderTriage();
+  document.getElementById('triage-overlay').classList.remove('hidden');
+}
+function closeTriage() { document.getElementById('triage-overlay').classList.add('hidden'); }
+function currentTriage() { return triageQueue[triageIndex] || null; }
+function renderTriage() {
+  const body = document.getElementById('triage-body');
+  const title = document.getElementById('triage-title');
+  const cur = currentTriage();
+  if (!cur) {
+    title.textContent = 'Tab Triage';
+    body.innerHTML = '<div class="triage-empty">All done. No saved tabs left to triage.</div>';
+    return;
+  }
+  const { item, ctx } = cur;
+  const loc = `${ctx.group?.name || 'Group'}${ctx.stack ? ` · ${ctx.stack.name || 'Stack'}` : ''}`;
+  const verb = item.actionVerb ? `${TAB_ACTION_LABELS[item.actionVerb] || item.actionVerb}${item.actionText ? `: ${item.actionText}` : ''}` : 'None';
+  title.textContent = `Tab Triage · ${triageIndex + 1}/${triageQueue.length}`;
+  body.innerHTML = `<div class="triage-item"><img class="triage-fav" src="${esc(item.fav || favUrl(item.url) || BLANK_FAV)}" onerror="this.src='${BLANK_FAV}'"><div><div class="triage-title">${esc(item.title || dispUrl(item.url) || 'Untitled')}</div><div class="triage-meta">${esc(dispUrl(item.url) || item.url || '')}</div><div class="triage-meta">Location: ${esc(loc)}</div><div class="triage-meta">Action verb: ${esc(verb)}</div></div></div>`;
+}
+function triageAdvance() { triageIndex++; renderTriage(); renderBoard(); }
 
 // ════════════════════════════════════════════════════════════════
 // MODAL (group create/edit)
@@ -4882,6 +4932,7 @@ function bindStatic() {
   document.getElementById('settings-drawer').onclick = e => { if (e.target.id === 'settings-drawer') document.getElementById('settings-drawer').classList.add('hidden'); };
   document.getElementById('search-btn').onclick = () => toggleSearchBar();
   document.getElementById('undo-btn').onclick = performUndo;
+  document.getElementById('triage-btn').onclick = openTriage;
 
   document.getElementById('search-input').oninput = applySearchFilter;
   document.getElementById('search-input').onkeydown = e => { if (e.key === 'Escape') toggleSearchBar(false); };
@@ -4904,6 +4955,43 @@ function bindStatic() {
   document.getElementById('resume-x').onclick = closeResumePanel;
   document.getElementById('resume-close').onclick = closeResumePanel;
   document.getElementById('resume-overlay').onclick = e => { if (e.target.id === 'resume-overlay') closeResumePanel(); };
+  document.getElementById('triage-x').onclick = closeTriage;
+  document.getElementById('triage-overlay').onclick = e => { if (e.target.id === 'triage-overlay') closeTriage(); };
+  document.getElementById('triage-skip').onclick = () => triageAdvance();
+  document.getElementById('triage-archive').onclick = () => {
+    const cur = currentTriage(); if (!cur) return;
+    archiveItem(cur.item.id); triageAdvance();
+  };
+  document.getElementById('triage-delete').onclick = () => {
+    const cur = currentTriage(); if (!cur) return;
+    if (!confirm('Delete this saved tab? It will be archived and undoable.')) return;
+    archiveItem(cur.item.id); triageAdvance();
+  };
+  document.getElementById('triage-reference').onclick = () => {
+    const cur = currentTriage(); if (!cur) return;
+    State.snapshot('Mark tab as reference');
+    cur.item.actionVerb = 'cite';
+    if (cur.ctx.group) { const i = ensureIntentMeta(cur.ctx.group); i.status = 'reference'; i.updatedAt = Date.now(); }
+    State.persist(); triageAdvance();
+  };
+  document.getElementById('triage-todo').onclick = () => {
+    const cur = currentTriage(); if (!cur) return;
+    State.snapshot('Convert tab to todo');
+    const info = findItem(cur.item.id); if (!info) return;
+    info.parent.splice(info.index, 1, { id: uid(), type:'todo', text: cur.item.title || dispUrl(cur.item.url), done:false });
+    State.persist(); triageAdvance();
+  };
+  document.getElementById('triage-verb').onclick = () => {
+    const cur = currentTriage(); if (!cur) return;
+    editTabAction(cur.item); renderTriage();
+  };
+  document.getElementById('triage-move').onclick = () => {
+    const cur = currentTriage(); if (!cur) return;
+    const infos = [findItem(cur.item.id)].filter(Boolean);
+    if (!infos.length) return;
+    openMoveTargetPicker(infos);
+    triageAdvance();
+  };
   document.getElementById('emoji-trigger').onclick = e => { e.stopPropagation(); openEmojiPicker({ kind:'modal' }, e.currentTarget); };
   document.querySelectorAll('.csw').forEach(c => c.onclick = () => { document.querySelectorAll('.csw').forEach(x => x.classList.remove('active')); c.classList.add('active'); });
 
@@ -4954,6 +5042,7 @@ function bindStatic() {
       document.getElementById('settings-drawer').classList.add('hidden');
       document.getElementById('ws-grid-overlay').classList.add('hidden');
       document.getElementById('ws-list').classList.add('hidden');
+      closeTriage();
       const tourEl = document.getElementById('tour-overlay');
       if (tourEl && !tourEl.classList.contains('hidden')) endTour(true);
       const focusEl = document.getElementById('group-focus-overlay');
