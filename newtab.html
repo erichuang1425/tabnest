@@ -279,6 +279,41 @@
     </div>
   </div>
 
+  <div id="future-overlay" class="hidden">
+    <div class="rm-panel">
+      <div class="modal-hd">
+        <h2 id="future-title">Future Me Note</h2>
+        <button id="future-x" class="icon-btn">
+          <svg width="13" height="13" viewBox="0 0 12 12"><path d="M2 2l8 8M10 2L2 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="modal-bd">
+        <label>When I come back, I should…</label>
+        <textarea id="future-input" rows="3" placeholder="Continue with the next concrete step."></textarea>
+        <div id="future-list" class="future-list"></div>
+      </div>
+      <div class="modal-ft">
+        <button id="future-cancel" class="btn-secondary">Cancel</button>
+        <button id="future-save" class="btn-primary">Add note</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="resume-overlay" class="hidden">
+    <div class="rm-panel">
+      <div class="modal-hd">
+        <h2 id="resume-title">Resume</h2>
+        <button id="resume-x" class="icon-btn">
+          <svg width="13" height="13" viewBox="0 0 12 12"><path d="M2 2l8 8M10 2L2 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="modal-bd" id="resume-body"></div>
+      <div class="modal-ft">
+        <button id="resume-close" class="btn-secondary">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Settings drawer -->
   <div id="settings-drawer" class="hidden">
     <div class="drawer-bd">
