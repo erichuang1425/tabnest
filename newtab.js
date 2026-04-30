@@ -119,6 +119,16 @@ function renderFutureNotePreview(entity) {
   const t = note.text.trim();
   return `<div class="future-preview">Future me: ${esc(t.slice(0, 110))}${t.length > 110 ? '…' : ''}</div>`;
 }
+function renderHeartbeat(entity) {
+  const i = entity?.intent || {};
+  const chips = [];
+  const hasNext = !!(i.nextAction || '').trim();
+  if (!hasNext) chips.push('<span class="hb-chip warn">No next action</span>');
+  const lastTouch = Math.max(i.updatedAt || 0, entity?.lastOpenedAt || 0);
+  const staleMs = 1000 * 60 * 60 * 24 * 7;
+  if (lastTouch && (Date.now() - lastTouch) > staleMs) chips.push('<span class="hb-chip stale">Stale</span>');
+  return chips.length ? `<div class="heartbeat-row">${chips.join('')}</div>` : '';
+}
 
 const activeWs = () => State.get().workspaces.find(w => w.id === State.get().activeWsId);
 const activeCat = () => { const ws = activeWs(); return ws ? (ws.categories.find(c => c.id === ws.activeCatId) || ws.categories[0]) : null; };
@@ -1458,6 +1468,7 @@ function buildGroupCol(g) {
           ${todoStr}
         </div>
         ${renderIntentPills(g)}
+        ${renderHeartbeat(g)}
         ${renderFutureNotePreview(g)}
       </div>
       <div class="gcol-acts">
@@ -1977,6 +1988,7 @@ function buildStack(it, parentItems, group) {
       <button class="stack-intent-btn" data-act="resume" title="Resume">▶</button>
     </div>
     ${renderIntentPills(it)}
+    ${renderHeartbeat(it)}
     ${renderFutureNotePreview(it)}
     <div class="stack-items"></div>`;
 
