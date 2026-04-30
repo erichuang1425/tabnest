@@ -895,7 +895,14 @@ function renderFutureList(entity) {
       const done = document.createElement('button');
       done.className = 'btn-secondary';
       done.textContent = 'Resolve';
-      done.onclick = () => { State.snapshot('Resolve future note'); n.resolvedAt = Date.now(); State.persist(); renderFutureList(entity); renderBoard(); };
+      done.onclick = () => {
+        State.snapshot('Resolve future note');
+        n.resolvedAt = Date.now();
+        State.persist();
+        renderFutureList(entity);
+        renderBoard();
+        toast('Future note resolved', { undo: true });
+      };
       acts.appendChild(done);
     }
     const del = document.createElement('button');
@@ -917,6 +924,7 @@ function saveFutureEditor() {
   renderFutureList(entity);
   renderBoard();
   document.getElementById('future-input').value = '';
+  toast('Future note added');
 }
 function confirmModal() {
   if (!modalCtx) return;
