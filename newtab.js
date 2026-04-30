@@ -89,9 +89,12 @@ function ensureIntentMeta(entity) {
 function clearIntentMeta(entity) {
   if (entity?.intent) delete entity.intent;
 }
-function getFutureNotes(entity) {
+function getFutureNotes(entity, { createIfMissing = false } = {}) {
   if (!entity) return [];
-  if (!Array.isArray(entity.futureNotes)) entity.futureNotes = [];
+  if (!Array.isArray(entity.futureNotes)) {
+    if (!createIfMissing) return [];
+    entity.futureNotes = [];
+  }
   return entity.futureNotes;
 }
 function getLatestUnresolvedFutureNote(entity) {
@@ -919,7 +922,7 @@ function saveFutureEditor() {
   const text = document.getElementById('future-input').value.trim();
   if (!text) return toast('Write a note first', { danger: true });
   State.snapshot('Add future note');
-  getFutureNotes(entity).push({ id: uid(), text, createdAt: Date.now() });
+  getFutureNotes(entity, { createIfMissing: true }).push({ id: uid(), text, createdAt: Date.now() });
   State.persist();
   renderFutureList(entity);
   renderBoard();
