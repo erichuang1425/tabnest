@@ -51,6 +51,11 @@ const BLANK_FAV = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' 
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 const INTENT_STATUS = ['active', 'paused', 'someday', 'done', 'reference'];
 const INTENT_TYPE = ['project', 'study', 'research', 'admin', 'life', 'reference', 'other'];
+const TAB_ACTION_VERBS = ['read', 'implement', 'compare', 'debug', 'watch', 'buy', 'cite', 'review', 'delete-after-checking', 'other'];
+const TAB_ACTION_LABELS = {
+  read: 'Read', implement: 'Implement', compare: 'Compare', debug: 'Debug', watch: 'Watch',
+  buy: 'Buy', cite: 'Cite', review: 'Review', 'delete-after-checking': 'Delete after checking', other: 'Other'
+};
 
 function sanitizeHtml(html) {
   return String(html)
@@ -1763,6 +1768,44 @@ function renderReminderBadge(it) {
   return `<span class="rem-badge ${cls}"><svg width="8" height="8" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M6 3v3l2 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>${fmtTimeRelative(it.reminder.at)}</span>`;
 }
 
+function renderTabActionPill(it) {
+  if (!it || !TAB_ACTION_VERBS.includes(it.actionVerb)) return '';
+  const label = TAB_ACTION_LABELS[it.actionVerb] || 'Action';
+  const text = (it.actionText || '').trim();
+  const short = text ? `${esc(text.slice(0, 56))}${text.length > 56 ? '…' : ''}` : '';
+  return `<div class="tab-action-pill" title="${esc(text ? `${label}: ${text}` : label)}">${esc(label)}${short ? `: ${short}` : ''}</div>`;
+}
+
+function editTabAction(it) {
+  if (!it || it.type !== 'tab') return;
+  const options = ['0) Clear action', ...TAB_ACTION_VERBS.map((v, i) => `${i + 1}) ${TAB_ACTION_LABELS[v]}`)].join('\n');
+  const seed = TAB_ACTION_VERBS.includes(it.actionVerb) ? String(TAB_ACTION_VERBS.indexOf(it.actionVerb) + 1) : '';
+  const pick = prompt(`What do you need to do with this tab?\n\n${options}\n\nChoose a number:`, seed);
+  if (pick == null) return;
+  const idx = Number(pick.trim());
+  if (!Number.isInteger(idx) || idx < 0 || idx > TAB_ACTION_VERBS.length) return toast('Invalid action choice', { danger: true });
+  State.snapshot('Edit tab action');
+  if (idx === 0) {
+    delete it.actionVerb;
+    delete it.actionText;
+    State.persist();
+    renderBoard();
+    toast('Tab action cleared');
+    return;
+  }
+  const verb = TAB_ACTION_VERBS[idx - 1];
+  const label = TAB_ACTION_LABELS[verb] || 'Action';
+  const details = prompt(`Optional details for "${label}" (leave blank for none):`, (it.actionText || '').trim());
+  if (details == null) return;
+  it.actionVerb = verb;
+  const clean = details.trim();
+  if (clean) it.actionText = clean;
+  else delete it.actionText;
+  State.persist();
+  renderBoard();
+  toast('Tab action saved');
+}
+
 function attachItemSelection(el, it) {
   const chk = document.createElement('span');
   chk.className = 'item-check';
@@ -1825,7 +1868,8 @@ function buildTab(it, parentItems, group) {
         </button>
       </div>
     </div>
-    <div class="item-url">${esc(dispUrl(it.url))}</div>`;
+    <div class="item-url">${esc(dispUrl(it.url))}</div>
+    ${renderTabActionPill(it)}`;
 
   el.querySelector('.item-title').addEventListener('click', () => openTabMaybeHibernated(it.url, { focus: true }));
   el.querySelectorAll('.item-btn').forEach(b => {
@@ -1843,6 +1887,7 @@ function buildTab(it, parentItems, group) {
       { text:'Open in background', icon: cmIcons.open, action: () => openTabMaybeHibernated(it.url, { focus: false }) },
       { text:'Copy URL', icon: cmIcons.copy, action: () => { navigator.clipboard.writeText(it.url); toast('URL copied'); } },
       { text:'Edit title…', icon: cmIcons.edit, action: () => { const n = prompt('Title:', it.title); if (n) { State.snapshot('Rename tab'); it.title = n; State.persist(); renderBoard(); } } },
+      { text:'Edit action…', icon: cmIcons.edit, action: () => editTabAction(it) },
       ...commonActs(it)
     ]);
   });

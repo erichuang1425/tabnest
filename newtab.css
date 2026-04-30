@@ -923,6 +923,21 @@ body.item-sel-mode .item { cursor: pointer; }
   line-height: 1.35; padding-left: 25px;
   margin-top: 1px;
 }
+.tab-action-pill {
+  margin: 6px 0 0 25px;
+  display: inline-flex;
+  max-width: calc(100% - 25px);
+  font-size: 10.5px;
+  line-height: 1.2;
+  color: var(--text2);
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  border-radius: 999px;
+  padding: 2px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 body[data-show-urls="off"] .item-url { display: none; }
 
 .item-acts {
