@@ -7,6 +7,7 @@ const isProto = u => !u || u.startsWith('chrome') || u.startsWith('edge') || u.s
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 let all = [], state = null, pendingTab = null;
+const STALE_DAYS = 14;
 
 async function loadState() {
   const d = await chrome.storage.local.get('te');
@@ -44,6 +45,106 @@ function render(activeId) {
       window.close();
     };
     $('ptabs').appendChild(row);
+  });
+}
+
+function buildNextActions() {
+  const suggestions = [];
+  const ws = state?.workspaces?.find(w => w.id === state?.activeWsId) || state?.workspaces?.[0];
+  const cat = ws ? (ws.categories.find(c => c.id === ws.activeCatId) || ws.categories[0]) : null;
+  const groups = cat?.groups || [];
+  const activeGroups = groups.filter(g => (g.intent?.status || 'active') === 'active');
+  const now = Date.now();
+
+  const unresolvedNotes = [];
+  const openTodos = [];
+  let staleCandidate = null;
+  for (const g of activeGroups) {
+    const nextAction = (g.intent?.nextAction || '').trim();
+    if (nextAction) suggestions.push({
+      title: `Resume ${g.name}`,
+      reason: `Next action is ready: ${nextAction}`,
+      actionLabel: 'Resume',
+      actionType: 'open-full'
+    });
+    const notes = Array.isArray(g.futureNotes) ? g.futureNotes.filter(n => !n.resolvedAt) : [];
+    if (notes.length) {
+      const latest = [...notes].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
+      unresolvedNotes.push({ group: g, note: latest });
+    }
+    const todos = (g.items || []).filter(it => it.type === 'todo' && !it.done);
+    if (todos.length) openTodos.push({ group: g, todo: todos[0], count: todos.length });
+    const updatedAt = g.intent?.updatedAt || 0;
+    const lastOpenedAt = g.lastOpenedAt || 0;
+    const lastTouch = Math.max(updatedAt, lastOpenedAt);
+    if (lastTouch && (now - lastTouch) > (STALE_DAYS * 86400000) && !staleCandidate) staleCandidate = { group: g, days: Math.floor((now - lastTouch) / 86400000) };
+  }
+
+  if (suggestions.length === 0 && unresolvedNotes[0]) {
+    suggestions.push({
+      title: `Review note in ${unresolvedNotes[0].group.name}`,
+      reason: `Unresolved Future Me note: ${(unresolvedNotes[0].note.text || '').slice(0, 90)}`,
+      actionLabel: 'Open',
+      actionType: 'open-full'
+    });
+  }
+  if (suggestions.length < 3 && openTodos[0]) {
+    suggestions.push({
+      title: `Finish todo in ${openTodos[0].group.name}`,
+      reason: `${openTodos[0].count} unfinished todo${openTodos[0].count > 1 ? 's' : ''} pending.`,
+      actionLabel: 'Open',
+      actionType: 'open-full'
+    });
+  }
+  if (suggestions.length < 3 && staleCandidate) {
+    suggestions.push({
+      title: `Check stale project: ${staleCandidate.group.name}`,
+      reason: `No recent update in about ${staleCandidate.days} days.`,
+      actionLabel: 'Revisit',
+      actionType: 'open-full'
+    });
+  }
+  if (suggestions.length < 3 && all.length >= 5) {
+    suggestions.push({
+      title: 'Save the current tab',
+      reason: `${all.length} open tabs in this window — corral the current one into a group.`,
+      actionLabel: 'Save current',
+      actionType: 'save-current'
+    });
+  }
+  if (suggestions.length < 3 && state?.pomo?.currentTask) {
+    suggestions.push({
+      title: 'Continue current Pomodoro task',
+      reason: `Current task: ${state.pomo.currentTask}`,
+      actionLabel: 'Open workspace',
+      actionType: 'open-full'
+    });
+  }
+  return suggestions.slice(0, 3);
+}
+
+function renderNextActionPanel() {
+  const panel = $('next-action-panel');
+  const items = buildNextActions();
+  if (!items.length) {
+    panel.innerHTML = `<div class="na-empty">No strong next action yet. Try adding a next action in an active group.</div>`;
+    return;
+  }
+  panel.innerHTML = items.map((s, i) => `
+    <div class="na-item">
+      <div class="na-title">${esc(s.title)}</div>
+      <div class="na-reason">Reason: ${esc(s.reason)}</div>
+      <button class="na-act" data-i="${i}">${esc(s.actionLabel)}</button>
+    </div>
+  `).join('');
+  panel.querySelectorAll('.na-act').forEach(btn => {
+    btn.onclick = async () => {
+      const x = items[Number(btn.dataset.i)];
+      if (!x) return;
+      if (x.actionType === 'save-current') return $('qs-current').click();
+      chrome.tabs.create({ url: chrome.runtime.getURL('newtab.html') });
+      window.close();
+    };
   });
 }
 
@@ -105,6 +206,11 @@ $('ps').oninput = () => {
 };
 
 $('open-full').onclick = () => { chrome.tabs.create({ url: chrome.runtime.getURL('newtab.html') }); window.close(); };
+$('next-action-btn').onclick = () => {
+  const panel = $('next-action-panel');
+  panel.classList.toggle('hidden');
+  if (!panel.classList.contains('hidden')) renderNextActionPanel();
+};
 $('qs-current').onclick = async () => {
   const [t] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (t && !isProto(t.url)) openSavePicker(t);

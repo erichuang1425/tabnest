@@ -49,6 +49,13 @@ const dispUrl = u => { try { const x = new URL(u); return x.hostname + (x.pathna
 const isProto = u => !u || u.startsWith('chrome') || u.startsWith('edge') || u.startsWith('about') || u.startsWith('view-source');
 const BLANK_FAV = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23444'/%3E%3C/svg%3E`;
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const INTENT_STATUS = ['active', 'paused', 'someday', 'done', 'reference'];
+const INTENT_TYPE = ['project', 'study', 'research', 'admin', 'life', 'reference', 'other'];
+const TAB_ACTION_VERBS = ['read', 'implement', 'compare', 'debug', 'watch', 'buy', 'cite', 'review', 'delete-after-checking', 'other'];
+const TAB_ACTION_LABELS = {
+  read: 'Read', implement: 'Implement', compare: 'Compare', debug: 'Debug', watch: 'Watch',
+  buy: 'Buy', cite: 'Cite', review: 'Review', 'delete-after-checking': 'Delete after checking', other: 'Other'
+};
 
 function sanitizeHtml(html) {
   return String(html)
@@ -70,6 +77,117 @@ function fmtTimeRelative(ts) {
   if (mins < 60) return diff > 0 ? `in ${mins}m` : `${mins}m ago`;
   if (hours < 24) return diff > 0 ? `in ${hours}h` : `${hours}h ago`;
   return diff > 0 ? `in ${days}d` : `${days}d ago`;
+}
+
+function hasIntentMeta(entity) {
+  if (!entity || !entity.intent) return false;
+  const i = entity.intent;
+  return !!(i.purpose || i.nextAction || i.status || i.type);
+}
+function ensureIntentMeta(entity) {
+  if (!entity) return null;
+  if (!entity.intent) entity.intent = {};
+  if (!INTENT_STATUS.includes(entity.intent.status)) entity.intent.status = 'active';
+  if (!INTENT_TYPE.includes(entity.intent.type)) entity.intent.type = 'other';
+  return entity.intent;
+}
+function clearIntentMeta(entity) {
+  if (entity?.intent) delete entity.intent;
+}
+function getFutureNotes(entity, { createIfMissing = false } = {}) {
+  if (!entity) return [];
+  if (!Array.isArray(entity.futureNotes)) {
+    if (!createIfMissing) return [];
+    entity.futureNotes = [];
+  }
+  return entity.futureNotes;
+}
+function getLatestUnresolvedFutureNote(entity) {
+  const notes = getFutureNotes(entity).filter(n => !n.resolvedAt);
+  notes.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return notes[0] || null;
+}
+function renderIntentPills(entity) {
+  if (!hasIntentMeta(entity)) return '';
+  const i = ensureIntentMeta(entity);
+  const next = (i.nextAction || '').trim();
+  return `
+    <div class="intent-meta">
+      <span class="intent-pill status status-${esc(i.status)}">${esc(i.status)}</span>
+      <span class="intent-pill type">${esc(i.type)}</span>
+      ${next ? `<span class="intent-next">Next: ${esc(next.slice(0, 72))}${next.length > 72 ? '…' : ''}</span>` : ''}
+    </div>`;
+}
+function renderFutureNotePreview(entity) {
+  const note = getLatestUnresolvedFutureNote(entity);
+  if (!note?.text) return '';
+  const t = note.text.trim();
+  return `<div class="future-preview">Future me: ${esc(t.slice(0, 110))}${t.length > 110 ? '…' : ''}</div>`;
+}
+function renderHeartbeat(entity) {
+  const hb = computeHeartbeat(entity);
+  const chips = [];
+  const details = [
+    hb.lastUpdatedAt ? `Updated: ${new Date(hb.lastUpdatedAt).toLocaleString()}` : 'Updated: unknown',
+    hb.lastOpenedAt ? `Opened: ${new Date(hb.lastOpenedAt).toLocaleString()}` : 'Opened: unknown',
+    `Tabs: ${hb.tabCount}`,
+    `Open todos: ${hb.unfinishedTodoCount}`,
+    `Notes: ${hb.noteCount}`,
+    `Future notes: ${hb.unresolvedFutureCount}`,
+    hb.hasPurpose ? 'Purpose: yes' : 'Purpose: no',
+    hb.hasNextAction ? 'Next action: yes' : 'Next action: no'
+  ].join(' • ');
+
+  if (!hb.hasNextAction) chips.push(`<span class="hb-chip warn" title="${esc(details)}">No next action</span>`);
+  if (hb.unfinishedTodoCount > 0) chips.push(`<span class="hb-chip todo" title="${esc(details)}">${hb.unfinishedTodoCount} to-do${hb.unfinishedTodoCount > 1 ? 's' : ''}</span>`);
+  if (hb.isReference) chips.push(`<span class="hb-chip ref" title="${esc(details)}">Reference</span>`);
+  if (hb.isStale) chips.push(`<span class="hb-chip stale" title="${esc(details)}">Stale</span>`);
+  else if (hb.isActive) chips.push(`<span class="hb-chip ok" title="${esc(details)}">Active</span>`);
+  return chips.length ? `<div class="heartbeat-row">${chips.join('')}</div>` : '';
+}
+function computeHeartbeat(entity) {
+  const i = entity?.intent || {};
+  const staleDays = Number(State.get().settings?.heartbeatStaleDays) || 14;
+  const staleMs = 1000 * 60 * 60 * 24 * staleDays;
+  const tabCount = (entity?.items || []).filter(x => x.type === 'tab').length;
+  const unfinishedTodoCount = (entity?.items || []).filter(x => x.type === 'todo' && !x.done).length;
+  const noteCount = (entity?.items || []).filter(x => x.type === 'note').length;
+  const unresolvedFutureCount = getFutureNotes(entity).filter(n => !n.resolvedAt).length;
+  const lastUpdatedAt = i.updatedAt || null;
+  const lastOpenedAt = entity?.lastOpenedAt || null;
+  const lastTouch = Math.max(lastUpdatedAt || 0, lastOpenedAt || 0);
+  const isStale = !!(lastTouch && (Date.now() - lastTouch) > staleMs);
+  const isActive = !!(lastTouch && !isStale);
+  const daysSinceTouch = lastTouch ? Math.floor((Date.now() - lastTouch) / 86400000) : null;
+  return {
+    lastUpdatedAt,
+    lastOpenedAt,
+    tabCount,
+    unfinishedTodoCount,
+    noteCount,
+    hasPurpose: !!(i.purpose || '').trim(),
+    hasNextAction: !!(i.nextAction || '').trim(),
+    unresolvedFutureCount,
+    staleDays,
+    daysSinceTouch,
+    isStale,
+    isActive,
+    isReference: (i.status || '') === 'reference' || (i.type || '') === 'reference'
+  };
+}
+
+function collectTriageCandidates() {
+  const out = [];
+  for (const ws of State.get().workspaces) for (const cat of ws.categories) for (const g of cat.groups) {
+    for (const it of g.items || []) collectTriageItem(out, it, { ws, cat, group: g, stack: null });
+  }
+  return out;
+}
+function collectTriageItem(out, it, ctx) {
+  if (it.type === 'tab') out.push({ item: it, ctx });
+  if (it.type === 'stack' && Array.isArray(it.items)) {
+    for (const sub of it.items) collectTriageItem(out, sub, { ...ctx, stack: it });
+  }
 }
 
 const activeWs = () => State.get().workspaces.find(w => w.id === State.get().activeWsId);
@@ -679,11 +797,187 @@ function openGroupAll(gId) {
   openAllHibernated(urls, items);
   toast(`Opened ${urls.length} tabs`);
 }
+function openResumePanel(targetKind, targetId) {
+  const entity = getEntityTarget(targetKind, targetId);
+  if (!entity) return;
+  entity.lastOpenedAt = Date.now();
+  State.persist();
+  const i = entity.intent || {};
+  const futureNote = getLatestUnresolvedFutureNote(entity);
+  const tabs = [];
+  const collectTabs = (list) => (list || []).forEach(x => { if (x.type === 'tab') tabs.push(x); else if (x.type === 'stack') collectTabs(x.items); });
+  collectTabs(entity.items || []);
+  const todos = (entity.items || []).filter(x => x.type === 'todo' && !x.done).slice(0, 5);
+  const keyTabs = tabs.slice(0, 3);
+  document.getElementById('resume-title').textContent = `Resume · ${entity.name || 'Stack'}`;
+  const body = document.getElementById('resume-body');
+  body.innerHTML = `
+    <div class="resume-section">${renderIntentPills(entity) || '<div>No intention yet.</div>'}</div>
+    <div class="resume-section">${i.purpose ? `<div><strong>Purpose:</strong> ${esc(i.purpose)}</div>` : ''}${i.nextAction ? `<div><strong>Next action:</strong> ${esc(i.nextAction)}</div>` : '<div><strong>Next action:</strong> none</div>'}</div>
+    <div class="resume-section">${futureNote ? `<strong>Future me:</strong> ${esc(futureNote.text)}` : 'No unresolved Future Me note.'}</div>
+    <div class="resume-section"><strong>Unfinished todos:</strong>${todos.length ? todos.map(t => `<div>• ${esc(t.text || '(untitled)')}</div>`).join('') : '<div> none</div>'}</div>
+    <div class="resume-section"><strong>Key tabs:</strong>${keyTabs.length ? keyTabs.map(t => `<div>• ${esc(t.title || dispUrl(t.url))}</div>`).join('') : '<div> none</div>'}</div>
+    <div class="resume-actions">
+      <button data-ract="open-key">Open key tabs</button><button data-ract="open-all">Open all tabs</button><button data-ract="pomo">Start Pomodoro</button><button data-ract="future">Add Future Me note</button><button data-ract="intent">Edit intention</button><button data-ract="clear-next">Clear next action</button>
+    </div>`;
+  body.querySelectorAll('[data-ract]').forEach(btn => btn.onclick = () => {
+    const act = btn.dataset.ract;
+    if (act === 'open-key') openAllHibernated(keyTabs.map(t => t.url), keyTabs);
+    else if (act === 'open-all') openAllHibernated(tabs.map(t => t.url), tabs);
+    else if (act === 'pomo') { openPomo(); if (i.nextAction) { getPomo().currentTask = i.nextAction; State.persist(); renderPomo(); } }
+    else if (act === 'future') openFutureEditor(targetKind, targetId);
+    else if (act === 'intent') openIntentEditor(targetKind, targetId);
+    else if (act === 'clear-next') { State.snapshot('Clear next action'); if (entity.intent) entity.intent.nextAction = ''; State.persist(); renderBoard(); openResumePanel(targetKind, targetId); }
+  });
+  document.getElementById('resume-overlay').classList.remove('hidden');
+}
+function closeResumePanel() { document.getElementById('resume-overlay').classList.add('hidden'); }
+
+function collectContinuationTargets() {
+  const out = [];
+  for (const ws of State.get().workspaces || []) {
+    for (const cat of ws.categories || []) {
+      for (const group of cat.groups || []) {
+        out.push({ kind: 'group', entity: group, wsId: ws.id, wsName: ws.name });
+        for (const it of group.items || []) {
+          if (it.type === 'stack') out.push({ kind: 'stack', entity: it, wsId: ws.id, wsName: ws.name });
+        }
+      }
+    }
+  }
+  return out;
+}
+function getNextActionSuggestions() {
+  const suggestions = [];
+  const usedTargetIds = new Set();
+  const activeWsId = State.get().activeWsId;
+  const targets = collectContinuationTargets();
+  const inActive = targets.filter(t => t.wsId === activeWsId);
+  const isInboxGroup = t => t.kind === 'group' && (t.entity.name || '').trim().toLowerCase() === 'inbox';
+  const pushSuggestion = (target, s) => {
+    if (!s || suggestions.length >= 3) return;
+    if (target) {
+      if (usedTargetIds.has(target.entity.id)) return;
+      usedTargetIds.add(target.entity.id);
+    }
+    suggestions.push(s);
+  };
+
+  const actNext = inActive.find(t => {
+    const i = t.entity.intent || {};
+    return (i.status || 'active') === 'active' && !!(i.nextAction || '').trim();
+  });
+  if (actNext) pushSuggestion(actNext, {
+    title: `Resume ${actNext.entity.name || 'this project'}`,
+    reason: 'It has an active next action, so you can continue without context switching.',
+    actionLabel: 'Resume',
+    onAction: () => { closeWhatNowPanel(); openResumePanel(actNext.kind, actNext.entity.id); }
+  });
+
+  const unresolved = inActive.find(t => !usedTargetIds.has(t.entity.id) && !!getLatestUnresolvedFutureNote(t.entity));
+  if (unresolved) pushSuggestion(unresolved, {
+    title: `Review note for ${unresolved.entity.name || 'this project'}`,
+    reason: 'There is an unresolved Future Me note waiting for you.',
+    actionLabel: 'Resume',
+    onAction: () => { closeWhatNowPanel(); openResumePanel(unresolved.kind, unresolved.entity.id); }
+  });
+
+  const todoTarget = inActive.find(t => !usedTargetIds.has(t.entity.id) && (t.entity.items || []).some(x => x.type === 'todo' && !x.done));
+  if (todoTarget) pushSuggestion(todoTarget, {
+    title: `Finish a to-do in ${todoTarget.entity.name || 'this project'}`,
+    reason: 'You already have unfinished to-dos in your current workspace.',
+    actionLabel: 'Resume',
+    onAction: () => { closeWhatNowPanel(); openResumePanel(todoTarget.kind, todoTarget.entity.id); }
+  });
+
+  const staleTarget = inActive.find(t => {
+    if (usedTargetIds.has(t.entity.id)) return false;
+    const hb = computeHeartbeat(t.entity);
+    return hb.isStale && !hb.isReference && ((t.entity.intent || {}).status || 'active') === 'active';
+  });
+  if (staleTarget) {
+    const days = computeHeartbeat(staleTarget.entity).daysSinceTouch;
+    pushSuggestion(staleTarget, {
+      title: `Refresh ${staleTarget.entity.name || 'this project'}`,
+      reason: days != null ? `It has been quiet for ${days} day${days === 1 ? '' : 's'}.` : 'It has been quiet for a while.',
+      actionLabel: 'Edit intention',
+      onAction: () => { closeWhatNowPanel(); openIntentEditor(staleTarget.kind, staleTarget.entity.id); }
+    });
+  }
+
+  const inboxTarget = inActive.find(t => isInboxGroup(t) && (t.entity.items || []).some(x => x.type === 'tab'));
+  if (inboxTarget) pushSuggestion(null, {
+    title: 'Clean inbox tabs',
+    reason: 'Your Inbox has saved tabs that still need sorting.',
+    actionLabel: 'Start triage',
+    onAction: () => { closeWhatNowPanel(); openTriage(); }
+  });
+
+  if (pomoState.running) pushSuggestion(null, {
+    title: 'Continue focus session',
+    reason: getPomo().currentTask ? `Current task: ${getPomo().currentTask}` : 'A Pomodoro session is already running.',
+    actionLabel: 'Open Pomodoro',
+    onAction: () => { closeWhatNowPanel(); openPomo(); }
+  });
+
+  return suggestions.slice(0, 3);
+}
+function openWhatNowPanel() {
+  const list = getNextActionSuggestions();
+  const body = document.getElementById('what-now-body');
+  if (!list.length) {
+    body.innerHTML = `<div class="what-now-empty">Nothing urgent found.<br>Add a next action to any group or stack to make this smarter.</div>`;
+  } else {
+    body.innerHTML = `<div class="what-now-list">${list.map((s, i) => `
+      <div class="what-now-item">
+        <h3>${esc(s.title)}</h3>
+        <div class="what-now-reason">${esc(s.reason)}</div>
+        <button class="what-now-act" data-idx="${i}">${esc(s.actionLabel)}</button>
+      </div>`).join('')}</div>`;
+    body.querySelectorAll('.what-now-act').forEach(btn => {
+      btn.onclick = () => {
+        const s = list[Number(btn.dataset.idx)];
+        if (s?.onAction) s.onAction();
+      };
+    });
+  }
+  document.getElementById('what-now-overlay').classList.remove('hidden');
+}
+function closeWhatNowPanel() { document.getElementById('what-now-overlay').classList.add('hidden'); }
+
+let triageQueue = [];
+let triageIndex = 0;
+function openTriage() {
+  triageQueue = collectTriageCandidates();
+  triageIndex = 0;
+  renderTriage();
+  document.getElementById('triage-overlay').classList.remove('hidden');
+}
+function closeTriage() { document.getElementById('triage-overlay').classList.add('hidden'); }
+function currentTriage() { return triageQueue[triageIndex] || null; }
+function renderTriage() {
+  const body = document.getElementById('triage-body');
+  const title = document.getElementById('triage-title');
+  const cur = currentTriage();
+  if (!cur) {
+    title.textContent = 'Tab Triage';
+    body.innerHTML = '<div class="triage-empty">All done. No saved tabs left to triage.</div>';
+    return;
+  }
+  const { item, ctx } = cur;
+  const loc = `${ctx.group?.name || 'Group'}${ctx.stack ? ` · ${ctx.stack.name || 'Stack'}` : ''}`;
+  const verb = item.actionVerb ? `${TAB_ACTION_LABELS[item.actionVerb] || item.actionVerb}${item.actionText ? `: ${item.actionText}` : ''}` : 'None';
+  title.textContent = `Tab Triage · ${triageIndex + 1}/${triageQueue.length}`;
+  body.innerHTML = `<div class="triage-item"><img class="triage-fav" src="${esc(item.fav || favUrl(item.url) || BLANK_FAV)}" onerror="this.src='${BLANK_FAV}'"><div><div class="triage-title">${esc(item.title || dispUrl(item.url) || 'Untitled')}</div><div class="triage-meta">${esc(dispUrl(item.url) || item.url || '')}</div><div class="triage-meta">Location: ${esc(loc)}</div><div class="triage-meta">Action verb: ${esc(verb)}</div></div></div>`;
+}
+function triageAdvance() { triageIndex++; renderTriage(); renderBoard(); }
 
 // ════════════════════════════════════════════════════════════════
 // MODAL (group create/edit)
 // ════════════════════════════════════════════════════════════════
 let modalCtx = null;
+let intentEditorCtx = null;
+let futureEditorCtx = null;
 function openModal(kind, ctx) {
   modalCtx = { kind, ctx };
   const $t = document.getElementById('modal-title');
@@ -714,6 +1008,136 @@ function selColor(c) {
   document.querySelectorAll('.csw').forEach(x => x.classList.toggle('active', x.dataset.c === c));
 }
 function closeModal() { document.getElementById('modal-overlay').classList.add('hidden'); modalCtx = null; }
+function openIntentEditor(targetKind, targetId) {
+  let entity = null;
+  let title = 'Edit Intention';
+  if (targetKind === 'group') {
+    const info = findGroup(targetId);
+    if (!info) return;
+    entity = info.group;
+    title = `Intention · ${info.group.name}`;
+  } else if (targetKind === 'stack') {
+    const info = findItem(targetId);
+    if (!info || info.item.type !== 'stack') return;
+    entity = info.item;
+    title = `Intention · ${info.item.name || 'Stack'}`;
+  }
+  intentEditorCtx = { targetKind, targetId };
+  const intent = entity.intent || {};
+  document.getElementById('intent-title').textContent = title;
+  document.getElementById('intent-purpose').value = intent.purpose || '';
+  document.getElementById('intent-next-action').value = intent.nextAction || '';
+  document.getElementById('intent-status').value = intent.status || 'active';
+  document.getElementById('intent-type').value = intent.type || 'other';
+  document.getElementById('intent-overlay').classList.remove('hidden');
+}
+function closeIntentEditor() {
+  document.getElementById('intent-overlay').classList.add('hidden');
+  intentEditorCtx = null;
+}
+function getIntentTarget(ctx = intentEditorCtx) {
+  if (!ctx) return null;
+  if (ctx.targetKind === 'group') return findGroup(ctx.targetId)?.group || null;
+  if (ctx.targetKind === 'stack') {
+    const info = findItem(ctx.targetId);
+    if (info?.item?.type === 'stack') return info.item;
+  }
+  return null;
+}
+function saveIntentEditor() {
+  const entity = getIntentTarget();
+  if (!entity) return closeIntentEditor();
+  const purpose = document.getElementById('intent-purpose').value.trim();
+  const nextAction = document.getElementById('intent-next-action').value.trim();
+  const status = document.getElementById('intent-status').value;
+  const type = document.getElementById('intent-type').value;
+  State.snapshot('Edit intention');
+  if (!purpose && !nextAction && status === 'active' && type === 'other') clearIntentMeta(entity);
+  else {
+    const i = ensureIntentMeta(entity);
+    i.purpose = purpose;
+    i.nextAction = nextAction;
+    i.status = INTENT_STATUS.includes(status) ? status : 'active';
+    i.type = INTENT_TYPE.includes(type) ? type : 'other';
+    i.updatedAt = Date.now();
+  }
+  State.persist();
+  renderBoard();
+  closeIntentEditor();
+  toast('Intention saved');
+}
+function clearIntentEditor() {
+  const entity = getIntentTarget();
+  if (!entity) return closeIntentEditor();
+  State.snapshot('Clear intention');
+  clearIntentMeta(entity);
+  State.persist();
+  renderBoard();
+  closeIntentEditor();
+  toast('Intention cleared', { undo: true });
+}
+function getEntityTarget(kind, id) {
+  if (kind === 'group') return findGroup(id)?.group || null;
+  if (kind === 'stack') {
+    const info = findItem(id);
+    return info?.item?.type === 'stack' ? info.item : null;
+  }
+  return null;
+}
+function openFutureEditor(targetKind, targetId) {
+  const entity = getEntityTarget(targetKind, targetId);
+  if (!entity) return;
+  futureEditorCtx = { targetKind, targetId };
+  document.getElementById('future-title').textContent = `Future Me · ${entity.name || 'Stack'}`;
+  document.getElementById('future-input').value = '';
+  renderFutureList(entity);
+  document.getElementById('future-overlay').classList.remove('hidden');
+}
+function closeFutureEditor() { document.getElementById('future-overlay').classList.add('hidden'); futureEditorCtx = null; }
+function renderFutureList(entity) {
+  const box = document.getElementById('future-list');
+  const notes = [...getFutureNotes(entity)].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 8);
+  box.innerHTML = notes.length ? '' : '<div class="future-row">No notes yet.</div>';
+  notes.forEach(n => {
+    const row = document.createElement('div');
+    row.className = 'future-row';
+    row.innerHTML = `<div>${esc(n.text || '')}</div><div class="future-meta"><span>${new Date(n.createdAt || Date.now()).toLocaleString()}</span><span>${n.resolvedAt ? 'Resolved' : 'Open'}</span></div><div class="future-acts"></div>`;
+    const acts = row.querySelector('.future-acts');
+    if (!n.resolvedAt) {
+      const done = document.createElement('button');
+      done.className = 'btn-secondary';
+      done.textContent = 'Resolve';
+      done.onclick = () => {
+        State.snapshot('Resolve future note');
+        n.resolvedAt = Date.now();
+        State.persist();
+        renderFutureList(entity);
+        renderBoard();
+        toast('Future note resolved', { undo: true });
+      };
+      acts.appendChild(done);
+    }
+    const del = document.createElement('button');
+    del.className = 'btn-secondary';
+    del.textContent = 'Delete';
+    del.onclick = () => { State.snapshot('Delete future note'); entity.futureNotes = getFutureNotes(entity).filter(x => x.id !== n.id); State.persist(); renderFutureList(entity); renderBoard(); toast('Future note deleted', { undo: true }); };
+    acts.appendChild(del);
+    box.appendChild(row);
+  });
+}
+function saveFutureEditor() {
+  const entity = futureEditorCtx ? getEntityTarget(futureEditorCtx.targetKind, futureEditorCtx.targetId) : null;
+  if (!entity) return closeFutureEditor();
+  const text = document.getElementById('future-input').value.trim();
+  if (!text) return toast('Write a note first', { danger: true });
+  State.snapshot('Add future note');
+  getFutureNotes(entity, { createIfMissing: true }).push({ id: uid(), text, createdAt: Date.now() });
+  State.persist();
+  renderFutureList(entity);
+  renderBoard();
+  document.getElementById('future-input').value = '';
+  toast('Future note added');
+}
 function confirmModal() {
   if (!modalCtx) return;
   const name = document.getElementById('modal-input').value.trim();
@@ -1242,8 +1666,16 @@ function buildGroupCol(g) {
           <span>${itemCnt} ${itemCnt === 1 ? 'item' : 'items'}</span>
           ${todoStr}
         </div>
+        ${renderIntentPills(g)}
+        ${renderHeartbeat(g)}
+        ${renderFutureNotePreview(g)}
       </div>
       <div class="gcol-acts">
+        <button class="gcol-btn" data-act="intent" title="Edit intention">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1.5a3.6 3.6 0 013.6 3.6c0 2.2-1.5 3.2-3.1 3.8l-.2.1v1.5M6 10.8h.01" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        </button>
+        <button class="gcol-btn" data-act="future" title="Future Me notes">✎</button>
+        <button class="gcol-btn" data-act="resume" title="Resume">▶</button>
         <button class="gcol-btn focus" data-act="focus" title="Expand to full page">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4V2h2M10 4V2H8M2 8v2h2M10 8v2H8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
@@ -1300,6 +1732,9 @@ function buildGroupCol(g) {
     const items = [
       { text:'Edit group…', icon: cmIcons.edit, action: () => openModal('edit-group', g) },
       { text:'Change symbol…', icon: cmIcons.symbol, action: () => openEmojiPicker({ kind:'group', id: g.id }, hd.querySelector('.gcol-sym-wrap')) },
+      { text:'Edit intention…', icon: cmIcons.edit, action: () => openIntentEditor('group', g.id) },
+      { text:'Future Me notes…', icon: cmIcons.edit, action: () => openFutureEditor('group', g.id) },
+      { text:'Resume…', icon: cmIcons.open, action: () => openResumePanel('group', g.id) },
       { text: g.collapsed ? 'Expand' : 'Collapse', icon: cmIcons.edit, action: () => { State.snapshot('Toggle'); g.collapsed = !g.collapsed; State.persist(); renderBoard(); } },
       { sep: true },
       { text:'Open all', icon: cmIcons.open, action: () => openGroupAll(g.id) },
@@ -1345,6 +1780,9 @@ function buildGroupCol(g) {
       else if (act === 'dup') duplicateGroup(g.id);
       else if (act === 'open-all') openGroupAll(g.id);
       else if (act === 'focus') openGroupFocus(g.id);
+      else if (act === 'intent') openIntentEditor('group', g.id);
+      else if (act === 'future') openFutureEditor('group', g.id);
+      else if (act === 'resume') openResumePanel('group', g.id);
     });
   });
 
@@ -1524,6 +1962,45 @@ function renderReminderBadge(it) {
   return `<span class="rem-badge ${cls}"><svg width="8" height="8" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M6 3v3l2 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>${fmtTimeRelative(it.reminder.at)}</span>`;
 }
 
+function renderTabActionPill(it) {
+  if (!it || !TAB_ACTION_VERBS.includes(it.actionVerb)) return '';
+  const label = TAB_ACTION_LABELS[it.actionVerb] || 'Action';
+  const text = (it.actionText || '').trim();
+  const short = text ? `${esc(text.slice(0, 56))}${text.length > 56 ? '…' : ''}` : '';
+  return `<div class="tab-action-pill" title="${esc(text ? `${label}: ${text}` : label)}">${esc(label)}${short ? `: ${short}` : ''}</div>`;
+}
+
+function editTabAction(it) {
+  if (!it || it.type !== 'tab') return;
+  const options = ['0) Clear action', ...TAB_ACTION_VERBS.map((v, i) => `${i + 1}) ${TAB_ACTION_LABELS[v]}`)].join('\n');
+  const seed = TAB_ACTION_VERBS.includes(it.actionVerb) ? String(TAB_ACTION_VERBS.indexOf(it.actionVerb) + 1) : '';
+  const pick = prompt(`What do you need to do with this tab?\n\n${options}\n\nChoose a number:`, seed);
+  if (pick == null) return;
+  const idx = Number(pick.trim());
+  if (!Number.isInteger(idx) || idx < 0 || idx > TAB_ACTION_VERBS.length) return toast('Invalid action choice', { danger: true });
+  if (idx === 0) {
+    State.snapshot('Edit tab action');
+    delete it.actionVerb;
+    delete it.actionText;
+    State.persist();
+    renderBoard();
+    toast('Tab action cleared');
+    return;
+  }
+  const verb = TAB_ACTION_VERBS[idx - 1];
+  const label = TAB_ACTION_LABELS[verb] || 'Action';
+  const details = prompt(`Optional details for "${label}" (leave blank for none):`, (it.actionText || '').trim());
+  if (details == null) return;
+  State.snapshot('Edit tab action');
+  it.actionVerb = verb;
+  const clean = details.trim();
+  if (clean) it.actionText = clean;
+  else delete it.actionText;
+  State.persist();
+  renderBoard();
+  toast('Tab action saved');
+}
+
 function attachItemSelection(el, it) {
   const chk = document.createElement('span');
   chk.className = 'item-check';
@@ -1586,7 +2063,8 @@ function buildTab(it, parentItems, group) {
         </button>
       </div>
     </div>
-    <div class="item-url">${esc(dispUrl(it.url))}</div>`;
+    <div class="item-url">${esc(dispUrl(it.url))}</div>
+    ${renderTabActionPill(it)}`;
 
   el.querySelector('.item-title').addEventListener('click', () => openTabMaybeHibernated(it.url, { focus: true }));
   el.querySelectorAll('.item-btn').forEach(b => {
@@ -1604,6 +2082,7 @@ function buildTab(it, parentItems, group) {
       { text:'Open in background', icon: cmIcons.open, action: () => openTabMaybeHibernated(it.url, { focus: false }) },
       { text:'Copy URL', icon: cmIcons.copy, action: () => { navigator.clipboard.writeText(it.url); toast('URL copied'); } },
       { text:'Edit title…', icon: cmIcons.edit, action: () => { const n = prompt('Title:', it.title); if (n) { State.snapshot('Rename tab'); it.title = n; State.persist(); renderBoard(); } } },
+      { text:'Edit action…', icon: cmIcons.edit, action: () => editTabAction(it) },
       ...commonActs(it)
     ]);
   });
@@ -1742,7 +2221,15 @@ function buildStack(it, parentItems, group) {
       <span class="stack-sym">${esc(it.symbol || '📚')}</span>
       <input class="stack-name" value="${esc(it.name || 'Stack')}" spellcheck="false">
       <span class="stack-cnt">${cnt}</span>
+      <button class="stack-intent-btn" title="Edit intention">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1.5a3.6 3.6 0 013.6 3.6c0 2.2-1.5 3.2-3.1 3.8l-.2.1v1.5M6 10.8h.01" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      </button>
+      <button class="stack-intent-btn" data-act="future" title="Future Me">✎</button>
+      <button class="stack-intent-btn" data-act="resume" title="Resume">▶</button>
     </div>
+    ${renderIntentPills(it)}
+    ${renderHeartbeat(it)}
+    ${renderFutureNotePreview(it)}
     <div class="stack-items"></div>`;
 
   const hd = el.querySelector('.stack-hd');
@@ -1758,12 +2245,18 @@ function buildStack(it, parentItems, group) {
     showContextMenu(e.pageX, e.pageY, [
       { text:'Rename stack', icon: cmIcons.edit, action: () => { const n = prompt('Name:', it.name); if (n) { State.snapshot('Rename stack'); it.name = n; State.persist(); renderBoard(); } } },
       { text:'Change symbol…', icon: cmIcons.symbol, action: () => openEmojiPicker({ kind:'stack', id: it.id }, hd.querySelector('.stack-sym')) },
+      { text:'Edit intention…', icon: cmIcons.edit, action: () => openIntentEditor('stack', it.id) },
+      { text:'Future Me notes…', icon: cmIcons.edit, action: () => openFutureEditor('stack', it.id) },
+      { text:'Resume…', icon: cmIcons.open, action: () => openResumePanel('stack', it.id) },
       { text: it.expanded ? 'Collapse' : 'Expand', icon: cmIcons.edit, action: () => { State.snapshot('Toggle'); it.expanded = !it.expanded; State.persist(); renderBoard(); } },
       { sep: true },
       ...commonActs(it)
     ]);
   });
   el.querySelector('.stack-sym').addEventListener('click', e => { e.stopPropagation(); openEmojiPicker({ kind:'stack', id: it.id }, e.currentTarget); });
+  el.querySelector('.stack-intent-btn').addEventListener('click', e => { e.stopPropagation(); openIntentEditor('stack', it.id); });
+  el.querySelector('[data-act="future"]').addEventListener('click', e => { e.stopPropagation(); openFutureEditor('stack', it.id); });
+  el.querySelector('[data-act="resume"]').addEventListener('click', e => { e.stopPropagation(); openResumePanel('stack', it.id); });
   const nm = el.querySelector('.stack-name');
   nm.addEventListener('click', e => e.stopPropagation());
   nm.addEventListener('blur', () => { if (nm.value.trim() && nm.value.trim() !== it.name) { State.snapshot('Rename stack'); it.name = nm.value.trim(); State.persist(); } });
@@ -2013,6 +2506,8 @@ function runBatchAction(act) {
 
 function openMoveTargetPicker(infos) {
   // Show a context-menu-style list of all groups as targets
+  const moveIds = (infos || []).map(i => i?.item?.id).filter(Boolean);
+  if (!moveIds.length) return;
   const items = [{ label: 'MOVE TO…' }];
   State.get().workspaces.forEach(ws => {
     ws.categories.forEach(cat => {
@@ -2021,12 +2516,12 @@ function openMoveTargetPicker(infos) {
           text: `${ws.symbol || '🏠'} ${ws.name} / ${cat.name} / ${g.name}`,
           icon: cmIcons.folder || cmIcons.open,
           action: () => {
-            State.snapshot(`Move ${infos.length} items`);
-            const ids = [...selectedItemIds];
+            State.snapshot(`Move ${moveIds.length} items`);
             // Walk and remove maintaining order
             const moved = [];
+            const idSet = new Set(moveIds);
             const orderedIds = [];
-            const walk = (list) => { for (const it of list) { if (ids.includes(it.id)) orderedIds.push(it.id); if (it.type === 'stack' && it.items) walk(it.items); } };
+            const walk = (list) => { for (const it of list) { if (idSet.has(it.id)) orderedIds.push(it.id); if (it.type === 'stack' && it.items) walk(it.items); } };
             State.get().workspaces.forEach(w => w.categories.forEach(c => c.groups.forEach(gr => walk(gr.items))));
             for (let i = orderedIds.length - 1; i >= 0; i--) {
               const info = findItem(orderedIds[i]);
@@ -2035,6 +2530,7 @@ function openMoveTargetPicker(infos) {
             g.items.push(...moved);
             State.persist();
             clearItemSelection();
+            renderBoard();
             toast(`Moved ${moved.length} items`, { undo: true });
           }
         });
@@ -4584,6 +5080,8 @@ function bindStatic() {
   document.getElementById('settings-drawer').onclick = e => { if (e.target.id === 'settings-drawer') document.getElementById('settings-drawer').classList.add('hidden'); };
   document.getElementById('search-btn').onclick = () => toggleSearchBar();
   document.getElementById('undo-btn').onclick = performUndo;
+  document.getElementById('triage-btn').onclick = openTriage;
+  document.getElementById('what-now-btn').onclick = openWhatNowPanel;
 
   document.getElementById('search-input').oninput = applySearchFilter;
   document.getElementById('search-input').onkeydown = e => { if (e.key === 'Escape') toggleSearchBar(false); };
@@ -4594,6 +5092,53 @@ function bindStatic() {
   document.getElementById('modal-ok').onclick = confirmModal;
   document.getElementById('modal-overlay').onclick = e => { if (e.target.id === 'modal-overlay') closeModal(); };
   document.getElementById('modal-input').onkeydown = e => { if (e.key === 'Enter') confirmModal(); if (e.key === 'Escape') closeModal(); };
+  document.getElementById('intent-x').onclick = closeIntentEditor;
+  document.getElementById('intent-cancel').onclick = closeIntentEditor;
+  document.getElementById('intent-save').onclick = saveIntentEditor;
+  document.getElementById('intent-clear').onclick = clearIntentEditor;
+  document.getElementById('intent-overlay').onclick = e => { if (e.target.id === 'intent-overlay') closeIntentEditor(); };
+  document.getElementById('future-x').onclick = closeFutureEditor;
+  document.getElementById('future-cancel').onclick = closeFutureEditor;
+  document.getElementById('future-save').onclick = saveFutureEditor;
+  document.getElementById('future-overlay').onclick = e => { if (e.target.id === 'future-overlay') closeFutureEditor(); };
+  document.getElementById('resume-x').onclick = closeResumePanel;
+  document.getElementById('resume-close').onclick = closeResumePanel;
+  document.getElementById('resume-overlay').onclick = e => { if (e.target.id === 'resume-overlay') closeResumePanel(); };
+  document.getElementById('what-now-x').onclick = closeWhatNowPanel;
+  document.getElementById('what-now-close').onclick = closeWhatNowPanel;
+  document.getElementById('what-now-overlay').onclick = e => { if (e.target.id === 'what-now-overlay') closeWhatNowPanel(); };
+  document.getElementById('triage-x').onclick = closeTriage;
+  document.getElementById('triage-overlay').onclick = e => { if (e.target.id === 'triage-overlay') closeTriage(); };
+  document.getElementById('triage-skip').onclick = () => triageAdvance();
+  document.getElementById('triage-archive').onclick = () => {
+    const cur = currentTriage(); if (!cur) return;
+    archiveItem(cur.item.id); triageAdvance();
+  };
+  document.getElementById('triage-reference').onclick = () => {
+    const cur = currentTriage(); if (!cur) return;
+    State.snapshot('Mark tab as reference');
+    cur.item.actionVerb = 'cite';
+    if (cur.ctx.group) { const i = ensureIntentMeta(cur.ctx.group); i.status = 'reference'; i.updatedAt = Date.now(); }
+    State.persist(); triageAdvance();
+  };
+  document.getElementById('triage-todo').onclick = () => {
+    const cur = currentTriage(); if (!cur) return;
+    const info = findItem(cur.item.id); if (!info) { triageAdvance(); return; }
+    State.snapshot('Convert tab to todo');
+    info.parent.splice(info.index, 1, { id: uid(), type:'todo', text: cur.item.title || dispUrl(cur.item.url), done:false });
+    State.persist(); triageAdvance();
+  };
+  document.getElementById('triage-verb').onclick = () => {
+    const cur = currentTriage(); if (!cur) return;
+    editTabAction(cur.item); renderTriage();
+  };
+  document.getElementById('triage-move').onclick = () => {
+    const cur = currentTriage(); if (!cur) return;
+    const infos = [findItem(cur.item.id)].filter(Boolean);
+    if (!infos.length) return;
+    openMoveTargetPicker(infos);
+    triageAdvance();
+  };
   document.getElementById('emoji-trigger').onclick = e => { e.stopPropagation(); openEmojiPicker({ kind:'modal' }, e.currentTarget); };
   document.querySelectorAll('.csw').forEach(c => c.onclick = () => { document.querySelectorAll('.csw').forEach(x => x.classList.remove('active')); c.classList.add('active'); });
 
@@ -4644,6 +5189,7 @@ function bindStatic() {
       document.getElementById('settings-drawer').classList.add('hidden');
       document.getElementById('ws-grid-overlay').classList.add('hidden');
       document.getElementById('ws-list').classList.add('hidden');
+      closeTriage();
       const tourEl = document.getElementById('tour-overlay');
       if (tourEl && !tourEl.classList.contains('hidden')) endTour(true);
       const focusEl = document.getElementById('group-focus-overlay');

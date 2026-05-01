@@ -14,12 +14,31 @@ body { font-family:'DM Sans',system-ui,sans-serif; background:var(--bg); color:v
   padding:12px 14px; border-bottom:1px solid var(--border); background:var(--bg2);
 }
 .logo { display:flex; align-items:center; gap:7px; font:600 13.5px 'DM Sans',sans-serif; color:var(--accent); }
+.ph-actions { display:flex; align-items:center; gap:6px; }
+#next-action-btn {
+  background:rgba(99,102,241,0.16); border:1px solid rgba(129,140,248,0.4); border-radius:6px;
+  color:#c8ceff; cursor:pointer; padding:6px 8px; font:600 10.5px 'DM Sans',sans-serif;
+}
+#next-action-btn:hover { background:rgba(99,102,241,0.3); color:white; }
 #open-full {
   background:var(--bg3); border:1px solid var(--border); border-radius:6px;
   color:var(--text3); cursor:pointer; padding:6px 7px;
   display:flex; align-items:center; transition:all 0.15s;
 }
 #open-full:hover { background:var(--bg4); color:var(--text); }
+.next-action-panel {
+  margin:8px 10px 2px; padding:8px; border-radius:9px;
+  background:var(--bg3); border:1px solid var(--border);
+}
+.na-item { padding:8px; border-radius:7px; background:var(--bg2); border:1px solid var(--border); margin-bottom:6px; }
+.na-item:last-child { margin-bottom:0; }
+.na-title { font-size:12px; color:var(--text); font-weight:600; }
+.na-reason { font-size:10.5px; color:var(--text2); margin:4px 0 7px; line-height:1.35; }
+.na-act {
+  background:var(--accent-bg); border:none; border-radius:6px; color:white;
+  font:600 10.5px 'DM Sans',sans-serif; padding:5px 8px; cursor:pointer;
+}
+.na-empty { font-size:11px; color:var(--text2); padding:6px; }
 
 .quick-save {
   display:flex; gap:6px; padding:10px 14px;

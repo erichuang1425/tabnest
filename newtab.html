@@ -73,6 +73,12 @@
           <button id="tools-btn" class="icon-btn" title="Tools (Pomodoro, Finance, Subs…)">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5l2 2-3 3-2-2 3-3zM10 4l-7.5 7.5L4 13l7.5-7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
+          <button id="triage-btn" class="icon-btn" title="Tab triage">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="11.5" cy="12.5" r="1.5" fill="currentColor"/></svg>
+          </button>
+          <button id="what-now-btn" class="icon-btn" title="What should I do now?">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8.8 1.8L3.7 8h3.4L6.7 14.2 12.3 7.5H8.9l-.1-5.7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+          </button>
           <div class="topbar-divider"></div>
           <button id="view-mode-btn" class="icon-btn" title="Toggle list view" data-mode="board">
             <svg id="view-mode-icon-board" width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="5" height="10" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="3" width="5" height="10" rx="1.5" stroke="currentColor" stroke-width="1.5"/></svg>
@@ -235,6 +241,116 @@
       <div class="modal-ft">
         <button id="rm-clear" class="btn-secondary">Clear</button>
         <button id="rm-save" class="btn-primary">Set</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="intent-overlay" class="hidden">
+    <div class="rm-panel">
+      <div class="modal-hd">
+        <h2 id="intent-title">Edit Intention</h2>
+        <button id="intent-x" class="icon-btn">
+          <svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="modal-bd">
+        <label class="field-lbl">Purpose</label>
+        <textarea id="intent-purpose" rows="2" placeholder="Why does this group/stack exist?"></textarea>
+        <label class="field-lbl">Next action</label>
+        <textarea id="intent-next-action" rows="2" placeholder="When I come back, I should…"></textarea>
+        <label class="field-lbl">Status</label>
+        <select id="intent-status">
+          <option value="active">Active</option>
+          <option value="paused">Paused</option>
+          <option value="someday">Someday</option>
+          <option value="done">Done</option>
+          <option value="reference">Reference</option>
+        </select>
+        <label class="field-lbl">Type</label>
+        <select id="intent-type">
+          <option value="project">Project</option>
+          <option value="study">Study</option>
+          <option value="research">Research</option>
+          <option value="admin">Admin</option>
+          <option value="life">Life</option>
+          <option value="reference">Reference</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="modal-ft">
+        <button id="intent-clear" class="btn-secondary">Clear</button>
+        <button id="intent-cancel" class="btn-secondary">Cancel</button>
+        <button id="intent-save" class="btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="future-overlay" class="hidden">
+    <div class="rm-panel">
+      <div class="modal-hd">
+        <h2 id="future-title">Future Me Note</h2>
+        <button id="future-x" class="icon-btn">
+          <svg width="13" height="13" viewBox="0 0 12 12"><path d="M2 2l8 8M10 2L2 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="modal-bd">
+        <label>When I come back, I should…</label>
+        <textarea id="future-input" rows="3" placeholder="Continue with the next concrete step."></textarea>
+        <div id="future-list" class="future-list"></div>
+      </div>
+      <div class="modal-ft">
+        <button id="future-cancel" class="btn-secondary">Cancel</button>
+        <button id="future-save" class="btn-primary">Add note</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="resume-overlay" class="hidden">
+    <div class="rm-panel">
+      <div class="modal-hd">
+        <h2 id="resume-title">Resume</h2>
+        <button id="resume-x" class="icon-btn">
+          <svg width="13" height="13" viewBox="0 0 12 12"><path d="M2 2l8 8M10 2L2 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="modal-bd" id="resume-body"></div>
+      <div class="modal-ft">
+        <button id="resume-close" class="btn-secondary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="triage-overlay" class="hidden">
+    <div class="rm-panel">
+      <div class="modal-hd">
+        <h2 id="triage-title">Tab Triage</h2>
+        <button id="triage-x" class="icon-btn">
+          <svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="modal-bd" id="triage-body"></div>
+      <div class="modal-ft triage-actions">
+        <button id="triage-skip" class="btn-secondary">Skip</button>
+        <button id="triage-archive" class="btn-secondary">Archive</button>
+        <button id="triage-reference" class="btn-secondary">Reference</button>
+        <button id="triage-todo" class="btn-secondary">To-do</button>
+        <button id="triage-verb" class="btn-secondary">Add verb</button>
+        <button id="triage-move" class="btn-primary">Move</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="what-now-overlay" class="hidden">
+    <div class="rm-panel">
+      <div class="modal-hd">
+        <h2 id="what-now-title">What now?</h2>
+        <button id="what-now-x" class="icon-btn">
+          <svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="modal-bd" id="what-now-body"></div>
+      <div class="modal-ft">
+        <button id="what-now-close" class="btn-secondary">Close</button>
       </div>
     </div>
   </div>
