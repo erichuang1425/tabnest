@@ -1,0 +1,353 @@
+You are working in my browser extension repo: “tab-utility” / “TabExtend”.
+
+This is a vanilla JavaScript MV3 browser extension with no build step. It replaces the new tab page with a visual tab manager and productivity workspace.
+
+Main files may include:
+- manifest.json
+- background.js
+- newtab.html
+- newtab.css
+- newtab.js
+- popup.html / popup.css / popup.js
+- suspended.html / suspended.js
+- emoji-data.js
+
+Core constraints:
+- Vanilla JavaScript only.
+- Do not add React, Vue, Vite, Webpack, TypeScript, npm build tools, or any framework.
+- Do not rewrite the whole app.
+- Preserve existing behavior.
+- Reuse existing state, render, modal, toast, undo, and storage patterns.
+- State is persisted in chrome.storage.local under the main `te` object.
+- Every destructive action must use the existing snapshot / undo pattern where applicable.
+- Keep features local-first. No backend, no AI API, no cloud dependency.
+- After each meaningful stage, run syntax checks such as:
+  - `node -c newtab.js`
+  - any other relevant syntax checks for touched JS files.
+- Do not ship broken JavaScript.
+
+Professional code style:
+- Use clear, normal project naming.
+- Comments should explain intent only where useful.
+- Do not mention prompts, agents, AI, generated code, or automation in comments, names, commit-style summaries, or UI copy.
+- Keep UI copy polished, concise, and user-facing.
+
+Product direction:
+Turn TabExtend from “tab storage” into a “continuity engine.”
+
+Core user problem:
+“I save tabs because I had an intention, but later I forget what I was doing, why I saved them, and what to do next.”
+
+Desired feeling:
+“I can stop anytime because future me will know exactly how to resume.”
+
+The product loop should become:
+
+Tabs → Intention → Action → Memory
+
+Every saved tab should eventually become one of:
+1. Action — something to do
+2. Reference — useful information
+3. Memory — context for future me
+4. Trash — safe to remove
+
+Every feature should help answer at least one of these:
+- Why did I save this?
+- What was I doing?
+- What should I do next?
+- What can I safely ignore or remove?
+- How do I resume without thinking?
+- How do I reduce browser overwhelm?
+
+Priority order:
+1. Stability
+2. Backward compatibility
+3. Small useful increments
+4. Clean UI
+5. Local-first data
+6. No backend or AI dependency
+7. No framework rewrite
+
+==================================================
+CURRENT TASK
+==================================================
+
+Start by reviewing the existing implementation.
+
+Important:
+- Stage 1 may already be partially or fully implemented.
+- Do not duplicate Stage 1 features.
+- First inspect Stage 1 and consolidate it if needed.
+- Then implement Stage 2.
+- Only proceed to Stage 3 if Stage 2 is stable, syntax checks pass, and the implementation remains low-risk.
+
+Do not implement Stages 4–10 in this pass.
+
+==================================================
+STAGE 0 — CODEBASE ORIENTATION AND SAFETY
+==================================================
+
+Before making edits, inspect the app structure.
+
+Find:
+- default state / state initialization
+- save/load functions
+- main render function, such as renderAll or equivalent
+- group rendering
+- stack rendering
+- item/tab rendering
+- note/todo handling
+- Pomodoro/tool hub patterns
+- modal/overlay patterns
+- archive/snapshot/undo functions
+- toast function
+- command palette/search if present
+
+Before editing, summarize:
+1. Where state lives
+2. How groups, stacks, and tab items are represented
+3. Which functions render groups and stacks
+4. Which functions bind group/stack actions
+5. How Stage 1 intention metadata is currently handled, if present
+6. Where Future Me Notes should be added
+7. Which existing modal/panel pattern should be reused
+8. Which undo/snapshot pattern should be used for destructive actions
+
+Do not make changes during Stage 0.
+
+==================================================
+STAGE 1 REVIEW — INTENTION METADATA
+==================================================
+
+Goal:
+Review and consolidate the existing “intention” metadata implementation for groups and stacks.
+
+Expected optional data model:
+
+intent: {
+  purpose: string,
+  nextAction: string,
+  status: "active" | "paused" | "someday" | "done" | "reference",
+  type: "project" | "study" | "research" | "admin" | "life" | "reference" | "other",
+  updatedAt: number
+}
+
+Review requirements:
+- Existing groups/stacks without `intent` must still render normally.
+- Metadata must be optional and backward compatible.
+- Do not perform destructive migrations.
+- Only create metadata when the user edits/saves it or when required by UI logic.
+- Reuse or preserve any existing helper such as `ensureIntentMeta(entity)`.
+- Confirm whether group and stack intention editing both work.
+- Confirm whether purpose, next action, status, and type persist after reload.
+- Confirm compact metadata display does not clutter cards.
+
+If Stage 1 is incomplete:
+- Make the smallest safe fixes needed.
+- Do not expand the feature beyond the intended scope.
+- Do not redesign the whole UI.
+
+Stage 1 acceptance check:
+- A group can have purpose and next action.
+- A stack can have purpose and next action.
+- Status and type can be edited.
+- Metadata persists after reload.
+- Groups/stacks without metadata still work.
+- Existing tab/group/stack behavior is preserved.
+
+==================================================
+STAGE 2 — FUTURE ME NOTES
+==================================================
+
+Goal:
+Add “Future Me Notes” to groups and stacks.
+
+Feature concept:
+When I stop working on something, I want to leave a short note that tells future me how to resume.
+
+Data model:
+Add optional metadata to group and stack entities:
+
+futureNotes: [
+  {
+    id: string,
+    text: string,
+    createdAt: number,
+    resolvedAt?: number
+  }
+]
+
+Compatibility rules:
+- Existing groups/stacks without `futureNotes` must continue working.
+- Do not destructively migrate existing data.
+- Create `futureNotes` only when needed.
+- Reuse existing ID-generation, timestamp, save, render, toast, and undo patterns where available.
+- If the app already has a note/todo model that can be safely reused, integrate carefully while keeping Future Me Notes distinct enough for resume/context use.
+
+UI requirements:
+For each group and stack, add a small “Future Me” entry point.
+
+Prefer one of the existing UI patterns:
+- header icon button
+- context menu item
+- compact metadata action
+- existing edit/actions menu
+
+The Future Me panel/modal should support:
+- Add note
+- Show recent notes
+- Mark note as resolved
+- Delete note
+- Cancel/close safely
+
+Input prompt:
+“When I come back, I should…”
+
+Example notes:
+- “Continue fixing drag-scroll in stack area.”
+- “Only reopen the GitHub issue and MDN docs.”
+- “This was UCL math prep — next review probability.”
+- “Do not reopen everything; start with localhost and the repo.”
+- “Probably archive this if not used by Friday.”
+
+Display requirements:
+- Show the latest unresolved Future Me note as a compact preview on the group/stack card.
+- Do not show resolved notes in the compact preview.
+- Keep the card UI clean.
+- Long notes should be truncated or visually contained.
+- Empty state should be subtle, not noisy.
+
+Safety requirements:
+- Deleting a Future Me note is destructive and should use the existing snapshot/undo pattern if applicable.
+- Resolving a note should update the UI and persist.
+- Do not delete or mutate unrelated notes/todos.
+- Do not alter existing group/stack opening behavior.
+
+Stage 2 acceptance criteria:
+- I can add a Future Me note to a group.
+- I can add a Future Me note to a stack.
+- The latest unresolved note is visible without opening a large modal.
+- Notes persist after reload.
+- Marking a note resolved updates the UI.
+- Deleting a note is safe and undoable where the app supports undo.
+- Existing notes, todos, groups, stacks, tabs, and tools still work.
+
+==================================================
+STAGE 3 — RESUME MODE
+==================================================
+
+Only start this stage after:
+- Stage 2 is stable.
+- Syntax checks pass.
+- The codebase still feels low-risk.
+- No major unresolved Stage 1 or Stage 2 issues remain.
+
+Goal:
+Add a “Resume” action for groups and stacks that reconstructs what I was doing before opening lots of tabs.
+
+Feature concept:
+Opening all tabs is often overwhelming. Resume should show context first.
+
+For each group/stack, add a Resume action.
+
+Resume panel should show:
+1. Group/stack name
+2. Purpose, if available
+3. Status/type, if available
+4. Latest unresolved Future Me note, if available
+5. Next action, if available
+6. Unfinished todos inside that group/stack, if the data model supports this safely
+7. Important tabs / key tabs
+8. Stale warning, if timestamp data already exists or was safely added
+9. Actions:
+   - Open key tabs
+   - Open all tabs
+   - Start Pomodoro for next action, if this can reuse existing Pomodoro safely
+   - Add Future Me note
+   - Edit intention
+   - Clear next action / mark next action done
+
+Key tabs heuristic:
+Keep it simple.
+Use:
+- first 3 tabs by default
+- tabs with color/reminder metadata if that already exists
+- recently added/opened tabs if that metadata already exists
+
+If no better signal exists, use the first 3 tabs.
+
+Optional tracking:
+If safe and simple, update:
+
+lastOpenedAt: number
+
+on group/stack when Resume or Open is used.
+
+Do not add complex analytics.
+
+Safety requirements:
+- Do not remove existing open-all behavior.
+- Do not open browser tabs without a clear user action.
+- No destructive action should happen from Resume without confirmation or undo.
+- Resume should be a context panel first, not a forced workflow.
+
+Stage 3 acceptance criteria:
+- I can click Resume on a group.
+- I can click Resume on a stack.
+- Resume shows useful context before opening tabs.
+- I can open only key tabs.
+- I can open all tabs.
+- I can add a Future Me note from Resume.
+- I can edit intention from Resume.
+- Existing open-all behavior still works.
+
+==================================================
+BACKLOG — DO NOT IMPLEMENT NOW
+==================================================
+
+Do not implement these unless explicitly asked in a later pass:
+
+Stage 4 — Tab action verbs
+- Add actionVerb/actionText to tab items.
+
+Stage 5 — Tab triage mode
+- Process saved/open tabs one by one.
+
+Stage 6 — Project heartbeat
+- Show stale/no-next-action/active indicators.
+
+Stage 7 — One next action
+- Add “What now?” suggestions.
+
+Stage 8 — Link Pomodoro to groups/stacks
+- Attach focus sessions to real work targets.
+
+Stage 9 — Goal-linked groups
+- Link goals to groups/stacks.
+
+Stage 10 — Session landing strip
+- Add compact start-here strip on the new tab page.
+
+==================================================
+WORKFLOW REQUIREMENTS
+==================================================
+
+Work stage by stage.
+
+After each stage, report:
+1. What changed
+2. Files changed
+3. How the data model was affected
+4. How backward compatibility was preserved
+5. Any risks or edge cases
+6. Syntax checks run and their results
+7. Whether the next stage is safe to start
+
+Do not proceed to the next stage if:
+- syntax checks fail
+- the app is likely broken
+- the implementation requires a broad rewrite
+- existing behavior is uncertain
+- the next stage would require guessing major architecture
+
+Prefer small, stable, readable changes over ambitious redesigns.
