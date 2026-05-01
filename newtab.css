@@ -1478,6 +1478,8 @@ body[data-show-urls="off"] .item-url { display: none; }
 [data-theme="solarized-light"] #settings-drawer,
 [data-theme="sepia"] #settings-drawer { background: rgba(20,20,30,0.3); }
 #settings-drawer.hidden { display: none; }
+.smart-only { display: none !important; }
+body.smart-mode .smart-only { display: inline-flex !important; }
 
 .drawer-bd {
   position: absolute; top: 0; right: 0;

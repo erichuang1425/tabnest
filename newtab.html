@@ -76,7 +76,7 @@
           <button id="triage-btn" class="icon-btn" title="Tab triage">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="11.5" cy="12.5" r="1.5" fill="currentColor"/></svg>
           </button>
-          <button id="what-now-btn" class="icon-btn" title="What should I do now?">
+          <button id="what-now-btn" class="icon-btn smart-only" title="What should I do now?">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8.8 1.8L3.7 8h3.4L6.7 14.2 12.3 7.5H8.9l-.1-5.7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
           </button>
           <div class="topbar-divider"></div>
@@ -448,6 +448,11 @@
           <label class="toggle-row">
             <span>Auto-switch workspace on window focus<br><small>each workspace tied to a browser window</small></span>
             <input type="checkbox" id="tog-autoswitch">
+            <span class="tog"></span>
+          </label>
+          <label class="toggle-row">
+            <span>Smart mode<br><small>enables intention, resume, and future-me tools</small></span>
+            <input type="checkbox" id="tog-smart">
             <span class="tog"></span>
           </label>
           <button id="show-tour-btn" class="btn-secondary" style="margin-top:10px">

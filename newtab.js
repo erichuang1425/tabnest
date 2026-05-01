@@ -13,7 +13,7 @@ const State = (() => {
       theme:'dark', size:'normal', font:'dm', width:'normal',
       closeTabOnSave:true, hibernate:true, showUrls:true,
       animate:true, confirmDelete:true, sidebarCollapsed:false,
-      blurPrivacy:false, windowSync:false
+      blurPrivacy:false, windowSync:false, smartMode:false
     }
   };
   let history = [], future = [];
@@ -56,6 +56,7 @@ const TAB_ACTION_LABELS = {
   read: 'Read', implement: 'Implement', compare: 'Compare', debug: 'Debug', watch: 'Watch',
   buy: 'Buy', cite: 'Cite', review: 'Review', 'delete-after-checking': 'Delete after checking', other: 'Other'
 };
+const isSmartMode = () => !!State.get().settings?.smartMode;
 
 function sanitizeHtml(html) {
   return String(html)
@@ -362,6 +363,7 @@ function applySettings() {
   document.body.dataset.showUrls = s.showUrls ? 'on' : 'off';
   document.body.dataset.anim = s.animate ? 'on' : 'off';
   document.body.classList.toggle('blur-privacy', !!s.blurPrivacy);
+  document.body.classList.toggle('smart-mode', !!s.smartMode);
 
   const sb = document.getElementById('sidebar');
   if (sb) sb.classList.toggle('collapsed', !!s.sidebarCollapsed);
@@ -371,7 +373,7 @@ function applySettings() {
     const key = id === 'seg-size' ? 'size' : id === 'seg-width' ? 'width' : 'font';
     document.querySelectorAll(`#${id} button`).forEach(b => b.classList.toggle('active', b.dataset.val === s[key]));
   });
-  const togs = [['tog-close','closeTabOnSave'],['tog-hibernate','hibernate'],['tog-urls','showUrls'],['tog-anim','animate'],['tog-confirm','confirmDelete'],['tog-blur','blurPrivacy'],['tog-autoswitch','autoSwitchWorkspace']];
+  const togs = [['tog-close','closeTabOnSave'],['tog-hibernate','hibernate'],['tog-urls','showUrls'],['tog-anim','animate'],['tog-confirm','confirmDelete'],['tog-blur','blurPrivacy'],['tog-autoswitch','autoSwitchWorkspace'],['tog-smart','smartMode']];
   togs.forEach(([id, key]) => { const el = document.getElementById(id); if (el) el.checked = !!s[key]; });
 }
 
@@ -1690,6 +1692,7 @@ function renderBoard() {
 
 function buildGroupCol(g) {
   const col = document.createElement('div');
+  const smart = isSmartMode();
   col.className = 'gcol' + (g.collapsed ? ' collapsed' : '');
   col.dataset.gid = g.id;
   col.style.setProperty('--gcol-tint', g.color);
@@ -1712,16 +1715,16 @@ function buildGroupCol(g) {
           <span>${itemCnt} ${itemCnt === 1 ? 'item' : 'items'}</span>
           ${todoStr}
         </div>
-        ${renderIntentPills(g)}
-        ${renderHeartbeat(g)}
-        ${renderFutureNotePreview(g)}
+        ${smart ? renderIntentPills(g) : ''}
+        ${smart ? renderHeartbeat(g) : ''}
+        ${smart ? renderFutureNotePreview(g) : ''}
       </div>
       <div class="gcol-acts">
-        <button class="gcol-btn" data-act="intent" title="Edit intention">
+        ${smart ? `<button class="gcol-btn" data-act="intent" title="Edit intention">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1.5a3.6 3.6 0 013.6 3.6c0 2.2-1.5 3.2-3.1 3.8l-.2.1v1.5M6 10.8h.01" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
         </button>
         <button class="gcol-btn" data-act="future" title="Future Me notes">✎</button>
-        <button class="gcol-btn" data-act="resume" title="Resume">▶</button>
+        <button class="gcol-btn" data-act="resume" title="Resume">▶</button>` : ''}
         <button class="gcol-btn focus" data-act="focus" title="Expand to full page">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4V2h2M10 4V2H8M2 8v2h2M10 8v2H8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
@@ -2255,6 +2258,7 @@ function buildTodo(it, parentItems, group) {
 
 function buildStack(it, parentItems, group) {
   const el = document.createElement('div');
+  const smart = isSmartMode();
   el.className = 'item stack' + (it.expanded ? ' expanded' : '');
   el.dataset.id = it.id;
   if (it.color) el.dataset.color = it.color;
@@ -2267,15 +2271,15 @@ function buildStack(it, parentItems, group) {
       <span class="stack-sym">${esc(it.symbol || '📚')}</span>
       <input class="stack-name" value="${esc(it.name || 'Stack')}" spellcheck="false">
       <span class="stack-cnt">${cnt}</span>
-      <button class="stack-intent-btn" title="Edit intention">
+      ${smart ? `<button class="stack-intent-btn" title="Edit intention">
         <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1.5a3.6 3.6 0 013.6 3.6c0 2.2-1.5 3.2-3.1 3.8l-.2.1v1.5M6 10.8h.01" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
       </button>
       <button class="stack-intent-btn" data-act="future" title="Future Me">✎</button>
-      <button class="stack-intent-btn" data-act="resume" title="Resume">▶</button>
+      <button class="stack-intent-btn" data-act="resume" title="Resume">▶</button>` : ''}
     </div>
-    ${renderIntentPills(it)}
-    ${renderHeartbeat(it)}
-    ${renderFutureNotePreview(it)}
+    ${smart ? renderIntentPills(it) : ''}
+    ${smart ? renderHeartbeat(it) : ''}
+    ${smart ? renderFutureNotePreview(it) : ''}
     <div class="stack-items"></div>`;
 
   const hd = el.querySelector('.stack-hd');
@@ -2300,9 +2304,11 @@ function buildStack(it, parentItems, group) {
     ]);
   });
   el.querySelector('.stack-sym').addEventListener('click', e => { e.stopPropagation(); openEmojiPicker({ kind:'stack', id: it.id }, e.currentTarget); });
-  el.querySelector('.stack-intent-btn').addEventListener('click', e => { e.stopPropagation(); openIntentEditor('stack', it.id); });
-  el.querySelector('[data-act="future"]').addEventListener('click', e => { e.stopPropagation(); openFutureEditor('stack', it.id); });
-  el.querySelector('[data-act="resume"]').addEventListener('click', e => { e.stopPropagation(); openResumePanel('stack', it.id); });
+  if (smart) {
+    el.querySelector('.stack-intent-btn').addEventListener('click', e => { e.stopPropagation(); openIntentEditor('stack', it.id); });
+    el.querySelector('[data-act="future"]').addEventListener('click', e => { e.stopPropagation(); openFutureEditor('stack', it.id); });
+    el.querySelector('[data-act="resume"]').addEventListener('click', e => { e.stopPropagation(); openResumePanel('stack', it.id); });
+  }
   const nm = el.querySelector('.stack-name');
   nm.addEventListener('click', e => e.stopPropagation());
   nm.addEventListener('blur', () => { if (nm.value.trim() && nm.value.trim() !== it.name) { State.snapshot('Rename stack'); it.name = nm.value.trim(); State.persist(); } });
@@ -5216,7 +5222,7 @@ function bindStatic() {
   document.getElementById('search-btn').onclick = () => toggleSearchBar();
   document.getElementById('undo-btn').onclick = performUndo;
   document.getElementById('triage-btn').onclick = openTriage;
-  document.getElementById('what-now-btn').onclick = openWhatNowPanel;
+  document.getElementById('what-now-btn').onclick = () => { if (isSmartMode()) openWhatNowPanel(); };
 
   document.getElementById('search-input').oninput = applySearchFilter;
   document.getElementById('search-input').onkeydown = e => { if (e.key === 'Escape') toggleSearchBar(false); };
@@ -5303,6 +5309,7 @@ function bindStatic() {
   document.getElementById('tog-confirm').onchange = e => { State.get().settings.confirmDelete = e.target.checked; State.persist(); };
   document.getElementById('tog-blur').onchange = e => { State.get().settings.blurPrivacy = e.target.checked; applySettings(); State.persist(); };
   document.getElementById('tog-autoswitch').onchange = e => { State.get().settings.autoSwitchWorkspace = e.target.checked; State.persist(); renderHeader(); };
+  document.getElementById('tog-smart').onchange = e => { State.get().settings.smartMode = e.target.checked; State.persist(); applySettings(); renderAll(); };
 
   document.getElementById('export-btn').onclick = exportJSON;
   document.getElementById('import-file').onchange = e => { if (e.target.files[0]) importJSON(e.target.files[0]); };
