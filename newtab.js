@@ -10,7 +10,7 @@ const State = (() => {
     workspaces: [], activeWsId: null, archive: [], recentEmoji: [],
     columnWidths: {},
     settings: {
-      theme:'dark', size:'normal', font:'dm', width:'normal',
+      theme:'light', size:'normal', font:'dm', width:'normal',
       closeTabOnSave:true, hibernate:true, showUrls:true,
       animate:true, confirmDelete:true, sidebarCollapsed:false,
       blurPrivacy:false, windowSync:false, smartMode:false
@@ -925,6 +925,7 @@ function getNextActionSuggestions() {
   return suggestions.slice(0, 3);
 }
 function openWhatNowPanel() {
+  if (!isSmartMode()) return;
   const list = getNextActionSuggestions();
   const body = document.getElementById('what-now-body');
   if (!list.length) {
@@ -955,6 +956,7 @@ function getSessionStripState() {
 function renderSessionStrip() {
   const el = document.getElementById('session-strip');
   if (!el) return;
+  if (!isSmartMode()) { el.classList.add('hidden'); el.innerHTML = ''; return; }
   const st = getSessionStripState();
   if (st.dismissedAt) { el.classList.add('hidden'); el.innerHTML = ''; return; }
   const suggestions = getNextActionSuggestions();
@@ -1781,9 +1783,11 @@ function buildGroupCol(g) {
     const items = [
       { text:'Edit group…', icon: cmIcons.edit, action: () => openModal('edit-group', g) },
       { text:'Change symbol…', icon: cmIcons.symbol, action: () => openEmojiPicker({ kind:'group', id: g.id }, hd.querySelector('.gcol-sym-wrap')) },
-      { text:'Edit intention…', icon: cmIcons.edit, action: () => openIntentEditor('group', g.id) },
-      { text:'Future Me notes…', icon: cmIcons.edit, action: () => openFutureEditor('group', g.id) },
-      { text:'Resume…', icon: cmIcons.open, action: () => openResumePanel('group', g.id) },
+      ...(isSmartMode() ? [
+        { text:'Edit intention…', icon: cmIcons.edit, action: () => openIntentEditor('group', g.id) },
+        { text:'Future Me notes…', icon: cmIcons.edit, action: () => openFutureEditor('group', g.id) },
+        { text:'Resume…', icon: cmIcons.open, action: () => openResumePanel('group', g.id) }
+      ] : []),
       { text: g.collapsed ? 'Expand' : 'Collapse', icon: cmIcons.edit, action: () => { State.snapshot('Toggle'); g.collapsed = !g.collapsed; State.persist(); renderBoard(); } },
       { sep: true },
       { text:'Open all', icon: cmIcons.open, action: () => openGroupAll(g.id) },
@@ -2295,9 +2299,11 @@ function buildStack(it, parentItems, group) {
     showContextMenu(e.pageX, e.pageY, [
       { text:'Rename stack', icon: cmIcons.edit, action: () => { const n = prompt('Name:', it.name); if (n) { State.snapshot('Rename stack'); it.name = n; State.persist(); renderBoard(); } } },
       { text:'Change symbol…', icon: cmIcons.symbol, action: () => openEmojiPicker({ kind:'stack', id: it.id }, hd.querySelector('.stack-sym')) },
-      { text:'Edit intention…', icon: cmIcons.edit, action: () => openIntentEditor('stack', it.id) },
-      { text:'Future Me notes…', icon: cmIcons.edit, action: () => openFutureEditor('stack', it.id) },
-      { text:'Resume…', icon: cmIcons.open, action: () => openResumePanel('stack', it.id) },
+      ...(isSmartMode() ? [
+        { text:'Edit intention…', icon: cmIcons.edit, action: () => openIntentEditor('stack', it.id) },
+        { text:'Future Me notes…', icon: cmIcons.edit, action: () => openFutureEditor('stack', it.id) },
+        { text:'Resume…', icon: cmIcons.open, action: () => openResumePanel('stack', it.id) }
+      ] : []),
       { text: it.expanded ? 'Collapse' : 'Expand', icon: cmIcons.edit, action: () => { State.snapshot('Toggle'); it.expanded = !it.expanded; State.persist(); renderBoard(); } },
       { sep: true },
       ...commonActs(it)
