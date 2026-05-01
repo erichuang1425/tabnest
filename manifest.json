@@ -1,15 +1,22 @@
 {
   "manifest_version": 3,
-  "name": "TabExtend",
+  "name": "__MSG_extName__",
   "version": "3.0.0",
-  "description": "Visual workspace for tabs, notes, stacks, and reminders — a drop zone for your browser.",
-  "permissions": ["tabs", "storage", "contextMenus", "bookmarks", "alarms", "notifications"],
+  "description": "__MSG_extDescription__",
+  "permissions": [
+    "tabs",
+    "storage",
+    "contextMenus",
+    "bookmarks",
+    "alarms",
+    "notifications"
+  ],
   "chrome_url_overrides": {
     "newtab": "newtab.html"
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "TabExtend",
+    "default_title": "__MSG_actionTitle__",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
@@ -21,17 +28,22 @@
   },
   "commands": {
     "_execute_action": {
-      "suggested_key": { "default": "Ctrl+Shift+E" },
-      "description": "Open TabExtend popup"
+      "suggested_key": {
+        "default": "Ctrl+Shift+E"
+      },
+      "description": "__MSG_cmdOpenPopup__"
     },
     "save-current-tab": {
-      "suggested_key": { "default": "Ctrl+Shift+S" },
-      "description": "Save current tab to Inbox"
+      "suggested_key": {
+        "default": "Ctrl+Shift+S"
+      },
+      "description": "__MSG_cmdSaveCurrent__"
     }
   },
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "default_locale": "en"
 }

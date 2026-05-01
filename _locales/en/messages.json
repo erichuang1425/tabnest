@@ -1,0 +1,197 @@
+{
+  "extName": {
+    "message": "TabExtend"
+  },
+  "extDescription": {
+    "message": "Visual workspace for tabs, notes, stacks, and reminders — a drop zone for your browser."
+  },
+  "actionTitle": {
+    "message": "TabExtend"
+  },
+  "cmdOpenPopup": {
+    "message": "Open TabExtend popup"
+  },
+  "cmdSaveCurrent": {
+    "message": "Save current tab to Inbox"
+  },
+  "popupWhatNowTitle": {
+    "message": "What now?"
+  },
+  "popupWhatNow": {
+    "message": "⚡ What now?"
+  },
+  "popupOpenFullTitle": {
+    "message": "Open full workspace"
+  },
+  "popupSaveCurrent": {
+    "message": "Save current"
+  },
+  "popupSaveAll": {
+    "message": "Save all"
+  },
+  "popupSaveTo": {
+    "message": "Save to"
+  },
+  "popupBack": {
+    "message": "← back"
+  },
+  "popupSearchOpenTabs": {
+    "message": "Search open tabs…"
+  },
+  "popupOpenTabs": {
+    "message": "Open tabs"
+  },
+  "suspendedStatus": {
+    "message": "Hibernated · loads when you switch to this tab"
+  },
+  "suspendedLoading": {
+    "message": "Loading…"
+  },
+  "suspendedLoadNow": {
+    "message": "Load now"
+  },
+  "suspendedSavedTab": {
+    "message": "Saved tab"
+  },
+  "suspendedLoadingPage": {
+    "message": "Loading page…"
+  },
+  "ntCollapseSidebar": {
+    "message": "Collapse sidebar"
+  },
+  "ntNewWorkspace": {
+    "message": "New workspace"
+  },
+  "ntAllWorkspaces": {
+    "message": "All workspaces"
+  },
+  "ntOpenTabs": {
+    "message": "open tabs"
+  },
+  "ntFilterTabs": {
+    "message": "Filter tabs"
+  },
+  "ntWorkspace": {
+    "message": "Workspace"
+  },
+  "ntSearchEverything": {
+    "message": "Search everything…"
+  },
+  "ntStartHere": {
+    "message": "Start here"
+  },
+  "ntWorkspaces": {
+    "message": "Workspaces"
+  },
+  "ntYourWorkspaces": {
+    "message": "Your workspaces"
+  },
+  "ntNewWorkspaceLabel": {
+    "message": "New Workspace"
+  },
+  "ntBrowserWindows": {
+    "message": "Browser windows"
+  },
+  "ntBrowserWindowsHint": {
+    "message": "click to focus · save window as its own workspace"
+  },
+  "menuSavePage": {
+    "message": "💾 Save page to TabExtend"
+  },
+  "menuSaveLink": {
+    "message": "🔗 Save link to TabExtend"
+  },
+  "menuSaveSelection": {
+    "message": "📝 Save selection as note"
+  },
+  "menuSaveImage": {
+    "message": "🖼️ Save image"
+  },
+  "menuSaveAll": {
+    "message": "📚 Save all tabs in window"
+  },
+  "defaultQuicklinks": {
+    "message": "Quicklinks"
+  },
+  "defaultInbox": {
+    "message": "Inbox"
+  },
+  "defaultWorkspace": {
+    "message": "My Workspace"
+  },
+  "notifTodoReminder": {
+    "message": "To-do reminder"
+  },
+  "notifNoteReminder": {
+    "message": "Note reminder"
+  },
+  "notifSubRenewing": {
+    "message": "💳 Subscription renewing in 3 days"
+  },
+  "defaultReadLater": {
+    "message": "Read later"
+  },
+  "defaultGettingStarted": {
+    "message": "Getting started"
+  },
+  "defaultWelcomeNote": {
+    "message": "👋 <b>Welcome to TabExtend!</b><br><br>Drag tabs from the left sidebar into any group.<br>Select text for the rich-text toolbar.<br>Right-click anywhere for more options."
+  },
+  "defaultTodoDragTab": {
+    "message": "Try dragging a tab here"
+  },
+  "defaultTodoContextMenu": {
+    "message": "Right-click a group for context menu"
+  },
+  "defaultTodoSearch": {
+    "message": "Press Cmd/Ctrl + K to search"
+  },
+  "defaultNewGroup": {
+    "message": "New Group"
+  },
+  "popupNoSaveableTabs": {
+    "message": "No saveable tabs"
+  },
+  "popupSaveTitle": {
+    "message": "Save…"
+  },
+  "popupSave": {
+    "message": "Save"
+  },
+  "popupActionResume": {
+    "message": "Resume"
+  },
+  "popupActionOpen": {
+    "message": "Open"
+  },
+  "popupSuggestionSaveCurrentTitle": {
+    "message": "Save the current tab"
+  },
+  "popupSuggestionPomo": {
+    "message": "Continue current Pomodoro task"
+  },
+  "popupActionOpenWorkspace": {
+    "message": "Open workspace"
+  },
+  "popupNoNextAction": {
+    "message": "No strong next action yet. Try adding a next action in an active group."
+  },
+  "popupReasonLabel": {
+    "message": "Reason:"
+  },
+  "popupNoWorkspaces": {
+    "message": "No workspaces yet. Open the full workspace to get started."
+  },
+  "popupNoGroups": {
+    "message": "No groups yet."
+  },
+  "popupAlreadySaved": {
+    "message": "Already saved in this group."
+  },
+  "commonUntitled": {
+    "message": "Untitled"
+  },
+  "popupSavedSuccess": {
+    "message": "✓ Saved!"
+  }
+}

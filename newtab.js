@@ -52,6 +52,8 @@ const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = se
 const INTENT_STATUS = ['active', 'paused', 'someday', 'done', 'reference'];
 const INTENT_TYPE = ['project', 'study', 'research', 'admin', 'life', 'reference', 'other'];
 const TAB_ACTION_VERBS = ['read', 'implement', 'compare', 'debug', 'watch', 'buy', 'cite', 'review', 'delete-after-checking', 'other'];
+const t = (k, f='') => (window.TEI18n?.msg?.(k, f) || f || k);
+
 const TAB_ACTION_LABELS = {
   read: 'Read', implement: 'Implement', compare: 'Compare', debug: 'Debug', watch: 'Watch',
   buy: 'Buy', cite: 'Cite', review: 'Review', 'delete-after-checking': 'Delete after checking', other: 'Other'
@@ -269,7 +271,7 @@ function migrate() {
   const s = State.get();
   (s.workspaces || []).forEach(ws => {
     if (!ws.categories) {
-      ws.categories = [{ id: uid(), name: 'Quicklinks', groups: ws.groups || [] }];
+      ws.categories = [{ id: uid(), name: t('defaultQuicklinks','Quicklinks'), groups: ws.groups || [] }];
       delete ws.groups;
     }
     if (!ws.activeCatId && ws.categories.length) ws.activeCatId = ws.categories[0].id;
@@ -293,18 +295,18 @@ function migrate() {
 function ensureDefault() {
   const s = State.get();
   if (!s.workspaces.length) {
-    const cat = { id: uid(), name:'Quicklinks', groups:[] };
-    const cat2 = { id: uid(), name:'Read later', groups:[] };
+    const cat = { id: uid(), name:t('defaultQuicklinks','Quicklinks'), groups:[] };
+    const cat2 = { id: uid(), name:t('defaultReadLater','Read later'), groups:[] };
     cat.groups.push({
-      id: uid(), name:'Getting started', symbol:'✨', color:'#6366f1', collapsed:false,
+      id: uid(), name:t('defaultGettingStarted','Getting started'), symbol:'✨', color:'#6366f1', collapsed:false,
       items: [
-        { id: uid(), type:'note', html:'👋 <b>Welcome to TabExtend!</b><br><br>Drag tabs from the left sidebar into any group.<br>Select text for the rich-text toolbar.<br>Right-click anywhere for more options.' },
-        { id: uid(), type:'todo', text:'Try dragging a tab here', done:false },
-        { id: uid(), type:'todo', text:'Right-click a group for context menu', done:false },
-        { id: uid(), type:'todo', text:'Press Cmd/Ctrl + K to search', done:false }
+        { id: uid(), type:'note', html:t('defaultWelcomeNote','👋 <b>Welcome to TabExtend!</b><br><br>Drag tabs from the left sidebar into any group.<br>Select text for the rich-text toolbar.<br>Right-click anywhere for more options.') },
+        { id: uid(), type:'todo', text:t('defaultTodoDragTab','Try dragging a tab here'), done:false },
+        { id: uid(), type:'todo', text:t('defaultTodoContextMenu','Right-click a group for context menu'), done:false },
+        { id: uid(), type:'todo', text:t('defaultTodoSearch','Press Cmd/Ctrl + K to search'), done:false }
       ]
     });
-    s.workspaces = [{ id: uid(), name:'My Workspace', symbol:'🏠', categories:[cat, cat2], activeCatId: cat.id }];
+    s.workspaces = [{ id: uid(), name:t('defaultWorkspace','My Workspace'), symbol:'🏠', categories:[cat, cat2], activeCatId: cat.id }];
     s.activeWsId = s.workspaces[0].id;
   }
   if (!s.activeWsId || !s.workspaces.find(w => w.id === s.activeWsId)) s.activeWsId = s.workspaces[0].id;
@@ -708,7 +710,7 @@ function restoreArchive(idx) {
   const cat = activeCat();
   if (entry.kind === 'item') {
     let inbox = cat.groups.find(g => g.name === 'Inbox');
-    if (!inbox) { inbox = { id: uid(), name:'Inbox', symbol:'📥', color:'#6366f1', collapsed:false, items:[] }; cat.groups.unshift(inbox); }
+    if (!inbox) { inbox = { id: uid(), name:t('defaultInbox','Inbox'), symbol:'📥', color:'#6366f1', collapsed:false, items:[] }; cat.groups.unshift(inbox); }
     inbox.items.push(entry.data);
   } else {
     cat.groups.push(entry.data);
@@ -731,7 +733,7 @@ function permDelete(idx) {
 function createGroup({ name, symbol, color }) {
   const cat = activeCat(); if (!cat) return;
   State.snapshot('Create group');
-  cat.groups.push({ id: uid(), name: name || 'New Group', symbol: symbol || '📁', color: color || '#6366f1', collapsed: false, items: [] });
+  cat.groups.push({ id: uid(), name: name || t('defaultNewGroup','New Group'), symbol: symbol || '📁', color: color || '#6366f1', collapsed: false, items: [] });
   State.persist(); renderBoard();
 }
 function deleteGroup(gId, skipConfirm) {
@@ -1196,14 +1198,14 @@ function confirmModal() {
   const color = cEl ? cEl.dataset.c : '#6366f1';
   const { kind, ctx } = modalCtx;
 
-  if (kind === 'new-group') createGroup({ name: name || 'New Group', symbol: sym, color });
+  if (kind === 'new-group') createGroup({ name: name || t('defaultNewGroup','New Group'), symbol: sym, color });
   else if (kind === 'edit-group') {
     State.snapshot('Edit group');
     ctx.name = name || ctx.name; ctx.symbol = sym; ctx.color = color;
     State.persist(); renderBoard();
   } else if (kind === 'new-ws') {
     State.snapshot('New workspace');
-    const ws = { id: uid(), name: name || 'New Workspace', symbol: sym, categories: [{ id: uid(), name:'Quicklinks', groups:[] }] };
+    const ws = { id: uid(), name: name || 'New Workspace', symbol: sym, categories: [{ id: uid(), name:t('defaultQuicklinks','Quicklinks'), groups:[] }] };
     ws.activeCatId = ws.categories[0].id;
     State.get().workspaces.push(ws);
     State.get().activeWsId = ws.id;
@@ -1409,7 +1411,7 @@ async function saveSelectedToInbox() {
   if (!tabs.length) return;
   const cat = activeCat(); if (!cat) return;
   let inbox = cat.groups.find(g => g.name === 'Inbox');
-  if (!inbox) { inbox = { id: uid(), name:'Inbox', symbol:'📥', color:'#6366f1', collapsed:false, items:[] }; cat.groups.unshift(inbox); }
+  if (!inbox) { inbox = { id: uid(), name:t('defaultInbox','Inbox'), symbol:'📥', color:'#6366f1', collapsed:false, items:[] }; cat.groups.unshift(inbox); }
   State.snapshot(`Save ${tabs.length} to inbox`);
   let added = 0;
   for (const t of tabs) {
@@ -1435,7 +1437,7 @@ function applyFilter() {
 async function saveTabToInbox(t) {
   const cat = activeCat();
   let inbox = cat.groups.find(g => g.name === 'Inbox');
-  if (!inbox) { inbox = { id: uid(), name:'Inbox', symbol:'📥', color:'#6366f1', collapsed:false, items:[] }; cat.groups.unshift(inbox); }
+  if (!inbox) { inbox = { id: uid(), name:t('defaultInbox','Inbox'), symbol:'📥', color:'#6366f1', collapsed:false, items:[] }; cat.groups.unshift(inbox); }
   if (inbox.items.find(it => it.type === 'tab' && it.url === t.url)) { toast('Already saved', { danger: true }); return; }
   State.snapshot('Save to inbox');
   inbox.items.push({ id: uid(), type:'tab', title: t.title||'Untitled', url: t.url, fav: t.favIconUrl||'' });
@@ -2900,7 +2902,7 @@ async function saveWindowAsWorkspace(win) {
   State.snapshot('Save window as workspace');
   const ws = {
     id: uid(), name: `Window ${new Date().toLocaleDateString('en',{month:'short',day:'numeric'})}`, symbol:'🪟',
-    categories: [{ id: uid(), name:'Quicklinks', groups: [{
+    categories: [{ id: uid(), name:t('defaultQuicklinks','Quicklinks'), groups: [{
       id: uid(), name:'Tabs', symbol:'📁', color:'#06b6d4', collapsed:false,
       items: tabs.map(t => ({ id: uid(), type:'tab', title:t.title||'Untitled', url:t.url, fav:t.favIconUrl||'' }))
     }] }]

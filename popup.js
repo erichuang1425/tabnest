@@ -27,7 +27,7 @@ async function load() {
 
 function render(activeId) {
   $('ptabs').innerHTML = '';
-  if (!all.length) { $('ptabs').innerHTML = `<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px;">No saveable tabs</div>`; return; }
+  if (!all.length) { $('ptabs').innerHTML = `<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px;">${t('popupNoSaveableTabs','No saveable tabs')}</div>`; return; }
   all.forEach(t => {
     const row = document.createElement('div');
     row.className = 'pti' + (t.id === activeId ? ' active-tab' : '');
@@ -38,7 +38,7 @@ function render(activeId) {
         <div class="pti-title">${esc(t.title || t.url)}</div>
         <div class="pti-url">${esc(dispUrl(t.url))}</div>
       </div>
-      <button class="pti-save" title="Save…">Save</button>`;
+      <button class="pti-save" title="${esc(t('popupSaveTitle','Save…'))}">${esc(t('popupSave','Save'))}</button>`;
     row.onclick = e => {
       if (e.target.closest('.pti-save')) { openSavePicker(t); return; }
       chrome.tabs.update(t.id, { active: true });
@@ -64,7 +64,7 @@ function buildNextActions() {
     if (nextAction) suggestions.push({
       title: `Resume ${g.name}`,
       reason: `Next action is ready: ${nextAction}`,
-      actionLabel: 'Resume',
+      actionLabel: t('popupActionResume','Resume'),
       actionType: 'open-full'
     });
     const notes = Array.isArray(g.futureNotes) ? g.futureNotes.filter(n => !n.resolvedAt) : [];
@@ -84,7 +84,7 @@ function buildNextActions() {
     suggestions.push({
       title: `Review note in ${unresolvedNotes[0].group.name}`,
       reason: `Unresolved Future Me note: ${(unresolvedNotes[0].note.text || '').slice(0, 90)}`,
-      actionLabel: 'Open',
+      actionLabel: t('popupActionOpen','Open'),
       actionType: 'open-full'
     });
   }
@@ -92,7 +92,7 @@ function buildNextActions() {
     suggestions.push({
       title: `Finish todo in ${openTodos[0].group.name}`,
       reason: `${openTodos[0].count} unfinished todo${openTodos[0].count > 1 ? 's' : ''} pending.`,
-      actionLabel: 'Open',
+      actionLabel: t('popupActionOpen','Open'),
       actionType: 'open-full'
     });
   }
@@ -106,17 +106,17 @@ function buildNextActions() {
   }
   if (suggestions.length < 3 && all.length >= 5) {
     suggestions.push({
-      title: 'Save the current tab',
+      title: t('popupSuggestionSaveCurrentTitle','Save the current tab'),
       reason: `${all.length} open tabs in this window — corral the current one into a group.`,
-      actionLabel: 'Save current',
+      actionLabel: t('popupSaveCurrent','Save current'),
       actionType: 'save-current'
     });
   }
   if (suggestions.length < 3 && state?.pomo?.currentTask) {
     suggestions.push({
-      title: 'Continue current Pomodoro task',
+      title: t('popupSuggestionPomo','Continue current Pomodoro task'),
       reason: `Current task: ${state.pomo.currentTask}`,
-      actionLabel: 'Open workspace',
+      actionLabel: t('popupActionOpenWorkspace','Open workspace'),
       actionType: 'open-full'
     });
   }
@@ -127,13 +127,13 @@ function renderNextActionPanel() {
   const panel = $('next-action-panel');
   const items = buildNextActions();
   if (!items.length) {
-    panel.innerHTML = `<div class="na-empty">No strong next action yet. Try adding a next action in an active group.</div>`;
+    panel.innerHTML = `<div class="na-empty">${t('popupNoNextAction','No strong next action yet. Try adding a next action in an active group.')}</div>`;
     return;
   }
   panel.innerHTML = items.map((s, i) => `
     <div class="na-item">
       <div class="na-title">${esc(s.title)}</div>
-      <div class="na-reason">Reason: ${esc(s.reason)}</div>
+      <div class="na-reason">${t('popupReasonLabel','Reason:')} ${esc(s.reason)}</div>
       <button class="na-act" data-i="${i}">${esc(s.actionLabel)}</button>
     </div>
   `).join('');
@@ -151,7 +151,7 @@ function renderNextActionPanel() {
 function openSavePicker(tab) {
   pendingTab = tab;
   const stg = $('stg-list'); stg.innerHTML = '';
-  if (!state?.workspaces?.length) { stg.innerHTML = '<div style="padding:16px;color:var(--text3);font-size:12px;">No workspaces yet. Open the full workspace to get started.</div>'; }
+  if (!state?.workspaces?.length) { stg.innerHTML = '<div style="padding:16px;color:var(--text3);font-size:12px;">'+t('popupNoWorkspaces','No workspaces yet. Open the full workspace to get started.')+'</div>'; }
   else {
     state.workspaces.forEach(ws => {
       ws.categories.forEach(cat => {
@@ -162,7 +162,7 @@ function openSavePicker(tab) {
         if (!cat.groups.length) {
           const em = document.createElement('div');
           em.style.cssText = 'padding:6px 14px;font-size:11px;color:var(--text3);';
-          em.textContent = 'No groups yet.';
+          em.textContent = ''+t('popupNoGroups','No groups yet.')+'';
           stg.appendChild(em);
         }
         cat.groups.forEach(g => {
@@ -182,10 +182,10 @@ $('stg-back').onclick = () => { $('save-to-section').classList.add('hidden'); $(
 
 async function doSave(ws, cat, g, t) {
   if (g.items.find(it => it.type === 'tab' && it.url === t.url)) {
-    $('stg-list').innerHTML = `<div style="padding:20px;text-align:center;color:var(--text3);font-size:12px;">Already saved in this group.</div>`;
+    $('stg-list').innerHTML = `<div style="padding:20px;text-align:center;color:var(--text3);font-size:12px;">${t('popupAlreadySaved','Already saved in this group.')}</div>`;
     return;
   }
-  g.items.push({ id: uid(), type:'tab', title: t.title || 'Untitled', url: t.url, fav: t.favIconUrl || '' });
+  g.items.push({ id: uid(), type:'tab', title: t.title || t('commonUntitled','Untitled'), url: t.url, fav: t.favIconUrl || '' });
   await chrome.storage.local.set({ te: state });
   if (state.settings?.closeTabOnSave !== false) {
     try { await chrome.tabs.remove(t.id); } catch {}
@@ -231,7 +231,7 @@ $('qs-all').onclick = async () => {
     const others = all.slice(1);
     for (const t of others) { try { await chrome.tabs.remove(t.id); } catch {} }
   }
-  $('qs-all').textContent = '✓ Saved!';
+  $('qs-all').textContent = t('popupSavedSuccess','✓ Saved!');
   $('qs-all').style.background = 'var(--green)';
   $('qs-all').style.color = 'white';
   setTimeout(() => window.close(), 600);

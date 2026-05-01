@@ -54,16 +54,17 @@
   <div class="box">
     <div class="tag">
       <span class="dot"></span>
-      <span id="status-text">Hibernated · loads when you switch to this tab</span>
+      <span id="status-text" data-i18n="suspendedStatus">Hibernated · loads when you switch to this tab</span>
     </div>
     <div class="fav-wrap"><img id="fav" class="fav" alt=""></div>
-    <h1 id="title">Loading…</h1>
+    <h1 id="title" data-i18n="suspendedLoading">Loading…</h1>
     <div class="url" id="url"></div>
     <button class="btn" id="load-btn">
       <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1v8m0 0l3-3m-3 3l-3-3M2 10.5v1a1 1 0 001 1h7a1 1 0 001-1v-1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      Load now
+      <span data-i18n="suspendedLoadNow">Load now</span>
     </button>
   </div>
+  <script src="i18n.js"></script>
   <script src="suspended.js"></script>
 </body>
 </html>

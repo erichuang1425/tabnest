@@ -1,0 +1,197 @@
+{
+  "extName": {
+    "message": "TabExtend"
+  },
+  "extDescription": {
+    "message": "用於分頁、筆記、堆疊與提醒的視覺化工作空間，成為你的瀏覽器收納區。"
+  },
+  "actionTitle": {
+    "message": "TabExtend"
+  },
+  "cmdOpenPopup": {
+    "message": "開啟 TabExtend 彈出視窗"
+  },
+  "cmdSaveCurrent": {
+    "message": "將目前分頁儲存到收件匣"
+  },
+  "popupWhatNowTitle": {
+    "message": "接下來做什麼？"
+  },
+  "popupWhatNow": {
+    "message": "⚡ 接下來做什麼？"
+  },
+  "popupOpenFullTitle": {
+    "message": "開啟完整工作區"
+  },
+  "popupSaveCurrent": {
+    "message": "儲存目前分頁"
+  },
+  "popupSaveAll": {
+    "message": "全部儲存"
+  },
+  "popupSaveTo": {
+    "message": "儲存到"
+  },
+  "popupBack": {
+    "message": "← 返回"
+  },
+  "popupSearchOpenTabs": {
+    "message": "搜尋已開啟分頁…"
+  },
+  "popupOpenTabs": {
+    "message": "已開啟分頁"
+  },
+  "suspendedStatus": {
+    "message": "已休眠 · 切換到此分頁時載入"
+  },
+  "suspendedLoading": {
+    "message": "載入中…"
+  },
+  "suspendedLoadNow": {
+    "message": "立即載入"
+  },
+  "suspendedSavedTab": {
+    "message": "已儲存分頁"
+  },
+  "suspendedLoadingPage": {
+    "message": "正在載入頁面…"
+  },
+  "ntCollapseSidebar": {
+    "message": "收合側邊欄"
+  },
+  "ntNewWorkspace": {
+    "message": "新增工作區"
+  },
+  "ntAllWorkspaces": {
+    "message": "所有工作區"
+  },
+  "ntOpenTabs": {
+    "message": "開啟中的分頁"
+  },
+  "ntFilterTabs": {
+    "message": "篩選分頁"
+  },
+  "ntWorkspace": {
+    "message": "工作區"
+  },
+  "ntSearchEverything": {
+    "message": "搜尋全部內容…"
+  },
+  "ntStartHere": {
+    "message": "從這裡開始"
+  },
+  "ntWorkspaces": {
+    "message": "工作區"
+  },
+  "ntYourWorkspaces": {
+    "message": "你的工作區"
+  },
+  "ntNewWorkspaceLabel": {
+    "message": "新增工作區"
+  },
+  "ntBrowserWindows": {
+    "message": "瀏覽器視窗"
+  },
+  "ntBrowserWindowsHint": {
+    "message": "點擊以聚焦 · 將視窗儲存為獨立工作區"
+  },
+  "menuSavePage": {
+    "message": "💾 將頁面儲存到 TabExtend"
+  },
+  "menuSaveLink": {
+    "message": "🔗 將連結儲存到 TabExtend"
+  },
+  "menuSaveSelection": {
+    "message": "📝 將選取文字儲存為筆記"
+  },
+  "menuSaveImage": {
+    "message": "🖼️ 儲存圖片"
+  },
+  "menuSaveAll": {
+    "message": "📚 儲存此視窗所有分頁"
+  },
+  "defaultQuicklinks": {
+    "message": "快速連結"
+  },
+  "defaultInbox": {
+    "message": "收件匣"
+  },
+  "defaultWorkspace": {
+    "message": "我的工作區"
+  },
+  "notifTodoReminder": {
+    "message": "待辦提醒"
+  },
+  "notifNoteReminder": {
+    "message": "筆記提醒"
+  },
+  "notifSubRenewing": {
+    "message": "💳 訂閱將在 3 天後續訂"
+  },
+  "defaultReadLater": {
+    "message": "稍後閱讀"
+  },
+  "defaultGettingStarted": {
+    "message": "開始使用"
+  },
+  "defaultWelcomeNote": {
+    "message": "👋 <b>歡迎使用 TabExtend！</b><br><br>將左側欄分頁拖曳到任一群組。<br>選取文字可使用富文字工具列。<br>在任何地方按右鍵可查看更多選項。"
+  },
+  "defaultTodoDragTab": {
+    "message": "試著把分頁拖曳到這裡"
+  },
+  "defaultTodoContextMenu": {
+    "message": "在群組上按右鍵開啟選單"
+  },
+  "defaultTodoSearch": {
+    "message": "按 Cmd/Ctrl + K 進行搜尋"
+  },
+  "defaultNewGroup": {
+    "message": "新群組"
+  },
+  "popupNoSaveableTabs": {
+    "message": "沒有可儲存的分頁"
+  },
+  "popupSaveTitle": {
+    "message": "儲存…"
+  },
+  "popupSave": {
+    "message": "儲存"
+  },
+  "popupActionResume": {
+    "message": "繼續"
+  },
+  "popupActionOpen": {
+    "message": "開啟"
+  },
+  "popupSuggestionSaveCurrentTitle": {
+    "message": "儲存目前分頁"
+  },
+  "popupSuggestionPomo": {
+    "message": "繼續目前番茄鐘任務"
+  },
+  "popupActionOpenWorkspace": {
+    "message": "開啟工作區"
+  },
+  "popupNoNextAction": {
+    "message": "目前沒有明確的下一步。請在啟用中的群組新增下一步行動。"
+  },
+  "popupReasonLabel": {
+    "message": "原因："
+  },
+  "popupNoWorkspaces": {
+    "message": "尚無工作區。請開啟完整工作區以開始使用。"
+  },
+  "popupNoGroups": {
+    "message": "尚無群組。"
+  },
+  "popupAlreadySaved": {
+    "message": "此群組已儲存過。"
+  },
+  "commonUntitled": {
+    "message": "未命名"
+  },
+  "popupSavedSuccess": {
+    "message": "✓ 已儲存！"
+  }
+}

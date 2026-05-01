@@ -1,6 +1,8 @@
 /* ═══ TabExtend background.js ═══ */
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const i18n = (key, fallback = '') => chrome.i18n.getMessage(key) || fallback || key;
+
 
 async function getState() {
   const d = await chrome.storage.local.get('te');
@@ -13,10 +15,10 @@ async function ensureDefault(s) {
     s = { workspaces: [], activeWsId: null, archive: [], settings: {} };
   }
   if (!s.workspaces?.length) {
-    const cat = { id: uid(), name: 'Quicklinks', groups: [] };
-    const inbox = { id: uid(), name: 'Inbox', symbol: '📥', color: '#6366f1', collapsed: false, items: [] };
+    const cat = { id: uid(), name: i18n('defaultQuicklinks','Quicklinks'), groups: [] };
+    const inbox = { id: uid(), name: i18n('defaultInbox','Inbox'), symbol: '📥', color: '#6366f1', collapsed: false, items: [] };
     cat.groups.push(inbox);
-    s.workspaces = [{ id: uid(), name: 'My Workspace', symbol: '🏠', categories: [cat], activeCatId: cat.id }];
+    s.workspaces = [{ id: uid(), name: i18n('defaultWorkspace','My Workspace'), symbol: '🏠', categories: [cat], activeCatId: cat.id }];
     s.activeWsId = s.workspaces[0].id;
   }
   return s;
@@ -27,9 +29,9 @@ async function addToInbox(item) {
   s = await ensureDefault(s);
   const ws = s.workspaces.find(w => w.id === s.activeWsId) || s.workspaces[0];
   const cat = ws.categories.find(c => c.id === ws.activeCatId) || ws.categories[0];
-  let inbox = cat.groups.find(g => g.name === 'Inbox');
+  let inbox = cat.groups.find(g => g.name === i18n('defaultInbox','Inbox'));
   if (!inbox) {
-    inbox = { id: uid(), name: 'Inbox', symbol: '📥', color: '#6366f1', collapsed: false, items: [] };
+    inbox = { id: uid(), name: i18n('defaultInbox','Inbox'), symbol: '📥', color: '#6366f1', collapsed: false, items: [] };
     cat.groups.unshift(inbox);
   }
   if (item.type === 'tab' && inbox.items.find(it => it.type === 'tab' && it.url === item.url)) {
@@ -48,12 +50,12 @@ function flash(text = '✓', color = '#22c55e') {
 
 // ─── Context Menus ────────────────────────────────────────────────────
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({ id: 'te-save-page',     title: '💾 Save page to TabExtend',        contexts: ['page'] });
-  chrome.contextMenus.create({ id: 'te-save-link',     title: '🔗 Save link to TabExtend',        contexts: ['link'] });
-  chrome.contextMenus.create({ id: 'te-save-selection',title: '📝 Save selection as note',        contexts: ['selection'] });
-  chrome.contextMenus.create({ id: 'te-save-image',    title: '🖼️ Save image',                    contexts: ['image'] });
+  chrome.contextMenus.create({ id: 'te-save-page',     title: i18n('menuSavePage','💾 Save page to TabExtend'),        contexts: ['page'] });
+  chrome.contextMenus.create({ id: 'te-save-link',     title: i18n('menuSaveLink','🔗 Save link to TabExtend'),        contexts: ['link'] });
+  chrome.contextMenus.create({ id: 'te-save-selection',title: i18n('menuSaveSelection','📝 Save selection as note'),        contexts: ['selection'] });
+  chrome.contextMenus.create({ id: 'te-save-image',    title: i18n('menuSaveImage','🖼️ Save image'),                    contexts: ['image'] });
   chrome.contextMenus.create({ id: 'te-sep', type: 'separator', contexts: ['page'] });
-  chrome.contextMenus.create({ id: 'te-save-all',      title: '📚 Save all tabs in window',       contexts: ['page'] });
+  chrome.contextMenus.create({ id: 'te-save-all',      title: i18n('menuSaveAll','📚 Save all tabs in window'),       contexts: ['page'] });
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
@@ -127,7 +129,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     }
     if (!found) return;
     const { it } = found;
-    const title = it.type === 'tab' ? it.title : (it.type === 'todo' ? 'To-do reminder' : 'Note reminder');
+    const title = it.type === 'tab' ? it.title : (it.type === 'todo' ? i18n('notifTodoReminder','To-do reminder') : i18n('notifNoteReminder','Note reminder'));
     const msg = it.type === 'tab' ? (it.url || '') : (stripHtml(it.html || it.text || '').slice(0, 120));
     chrome.notifications.create('te-notif-' + itemId, {
       type: 'basic',
@@ -148,7 +150,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     chrome.notifications.create('te-sub-notif-' + subId, {
       type: 'basic',
       iconUrl: chrome.runtime.getURL('icons/icon128.png'),
-      title: '💳 Subscription renewing in 3 days',
+      title: i18n('notifSubRenewing','💳 Subscription renewing in 3 days'),
       message: `${sub.name} • ${sym}${Number(sub.cost).toFixed(2)} • ${sub.nextBilling}`,
       priority: 2
     });

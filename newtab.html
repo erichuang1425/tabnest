@@ -17,16 +17,16 @@
       <div class="ws-bar">
         <div id="ws-chips-stack"></div>
         <div class="ws-bar-actions">
-          <button id="sidebar-toggle" class="icon-btn sm" title="Collapse sidebar">
+          <button id="sidebar-toggle" class="icon-btn sm" data-i18n-title="ntCollapseSidebar" title="Collapse sidebar">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <rect x="2" y="2.5" width="10" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
               <path d="M5.5 2.5v9" stroke="currentColor" stroke-width="1.2"/>
             </svg>
           </button>
-          <button id="add-ws-btn" class="icon-btn sm" title="New workspace">
+          <button id="add-ws-btn" class="icon-btn sm" data-i18n-title="ntNewWorkspace" title="New workspace">
             <svg width="13" height="13" viewBox="0 0 13 13"><path d="M6.5 2v9M2 6.5h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
           </button>
-          <button id="ws-menu-btn" class="icon-btn sm" title="All workspaces">
+          <button id="ws-menu-btn" class="icon-btn sm" data-i18n-title="ntAllWorkspaces" title="All workspaces">
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1.5" y="1.5" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="7.5" y="1.5" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="1.5" y="7.5" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="7.5" y="7.5" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.3"/></svg>
           </button>
         </div>
@@ -37,7 +37,7 @@
       <div class="side-hd">
         <div>
           <span id="open-count">0</span>
-          <span class="muted">open tabs</span>
+          <span class="muted" data-i18n="ntOpenTabs">open tabs</span>
         </div>
         <span id="selected-badge" class="hidden">0 selected</span>
       </div>
@@ -50,7 +50,7 @@
             <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
             <path d="M10 10l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
-          <input id="tab-filter" type="text" placeholder="Filter tabs" autocomplete="off">
+          <input id="tab-filter" type="text" data-i18n-placeholder="ntFilterTabs" placeholder="Filter tabs" autocomplete="off">
           <kbd>S</kbd>
         </div>
       </div>
@@ -60,7 +60,7 @@
     <main id="main">
       <header id="topbar">
         <div class="tb-left">
-          <h1 id="ws-title"><span id="ws-title-sym">🏠</span><span id="ws-title-name">Workspace</span></h1>
+          <h1 id="ws-title"><span id="ws-title-sym">🏠</span><span id="ws-title-name" data-i18n="ntWorkspace">Workspace</span></h1>
           <div class="cat-tabs" id="cat-tabs"></div>
           <button id="add-cat-btn" class="icon-btn sm" title="New category">
             <svg width="13" height="13" viewBox="0 0 13 13"><path d="M6.5 2v9M2 6.5h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -111,11 +111,11 @@
           <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
           <path d="M10 10l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
-        <input id="search-input" type="text" placeholder="Search everything…" autocomplete="off">
+        <input id="search-input" type="text" data-i18n-placeholder="ntSearchEverything" placeholder="Search everything…" autocomplete="off">
         <kbd>Esc</kbd>
       </div>
 
-      <section id="session-strip" class="hidden" aria-label="Start here"></section>
+      <section id="session-strip" class="hidden" aria-label="Start here" data-i18n-title="ntStartHere"></section>
 
       <div id="board"></div>
     </main>
@@ -125,19 +125,19 @@
   <div id="ws-grid-overlay" class="hidden">
     <div class="wsg-panel">
       <div class="wsg-hd">
-        <h2>Workspaces</h2>
+        <h2 data-i18n="ntWorkspaces">Workspaces</h2>
         <button id="wsg-close" class="icon-btn">
           <svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
         </button>
       </div>
-      <div class="wsg-sec-lbl">Your workspaces</div>
+      <div class="wsg-sec-lbl" data-i18n="ntYourWorkspaces">Your workspaces</div>
       <div id="wsg-grid"></div>
       <button id="wsg-add" class="btn-primary">
         <svg width="12" height="12" viewBox="0 0 13 13"><path d="M6.5 2v9M2 6.5h9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-        New Workspace
+        <span data-i18n="ntNewWorkspaceLabel">New Workspace</span>
       </button>
-      <div class="wsg-sec-lbl" style="margin-top:18px;">Browser windows
-        <small>click to focus · save window as its own workspace</small>
+      <div class="wsg-sec-lbl" style="margin-top:18px;"><span data-i18n="ntBrowserWindows">Browser windows</span>
+        <small><span data-i18n="ntBrowserWindowsHint">click to focus · save window as its own workspace</span></small>
       </div>
       <div id="wsg-windows"></div>
     </div>
@@ -1071,6 +1071,7 @@
 
   <!-- Toast with undo button -->
   <script src="emoji-data.js"></script>
+  <script src="i18n.js"></script>
   <script src="newtab.js"></script>
 </body>
 </html>

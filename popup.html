@@ -20,10 +20,10 @@
         TabExtend
       </div>
       <div class="ph-actions">
-        <button id="next-action-btn" title="What now?">
-          ⚡ What now?
+        <button id="next-action-btn" data-i18n-title="popupWhatNowTitle" title="What now?">
+          <span data-i18n="popupWhatNow">⚡ What now?</span>
         </button>
-        <button id="open-full" title="Open full workspace">
+        <button id="open-full" data-i18n-title="popupOpenFullTitle" title="Open full workspace">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2.5H2a1 1 0 00-1 1v6.5A1 1 0 002 11h6.5a1 1 0 001-1V8M7 1h4m0 0v4M11 1L5.5 6.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </div>
@@ -33,17 +33,17 @@
     <div class="quick-save">
       <button id="qs-current" class="qs-btn primary">
         <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M2 2.5h7l2 2v7H2v-9z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
-        Save current
+        <span data-i18n="popupSaveCurrent">Save current</span>
       </button>
       <button id="qs-all" class="qs-btn">
-        Save all <span id="qs-count">0</span>
+        <span data-i18n="popupSaveAll">Save all</span> <span id="qs-count">0</span>
       </button>
     </div>
 
     <div id="save-to-section" class="hidden">
       <div class="sect-hd">
-        <span>Save to</span>
-        <button id="stg-back">← back</button>
+        <span data-i18n="popupSaveTo">Save to</span>
+        <button id="stg-back" data-i18n="popupBack">← back</button>
       </div>
       <div id="stg-list"></div>
     </div>
@@ -54,12 +54,13 @@
           <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
           <path d="M10 10l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
-        <input id="ps" type="text" placeholder="Search open tabs…" autocomplete="off">
+        <input id="ps" type="text" data-i18n-placeholder="popupSearchOpenTabs" placeholder="Search open tabs…" autocomplete="off">
       </div>
-      <div class="sect-hd"><span>Open tabs</span></div>
+      <div class="sect-hd"><span data-i18n="popupOpenTabs">Open tabs</span></div>
       <div id="ptabs"></div>
     </div>
   </div>
+  <script src="i18n.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

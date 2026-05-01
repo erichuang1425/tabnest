@@ -14,7 +14,7 @@
 
   if (title) document.title = title;
   else if (url) {
-    try { document.title = new URL(url).hostname; } catch (e) { document.title = 'Loading…'; }
+    try { document.title = new URL(url).hostname; } catch (e) { document.title = (window.TEI18n?.msg('suspendedLoading','Loading…') || 'Loading…'); }
   }
 
   function setFavicon(href) {
@@ -36,7 +36,7 @@
   }
 
   var titleEl = document.getElementById('title');
-  if (titleEl) titleEl.textContent = title || 'Saved tab';
+  if (titleEl) titleEl.textContent = title || (window.TEI18n?.msg('suspendedSavedTab','Saved tab') || 'Saved tab');
   var urlEl = document.getElementById('url');
   if (urlEl) {
     try {
@@ -52,7 +52,7 @@
     if (loading || !url) return;
     loading = true;
     var st = document.getElementById('status-text');
-    if (st) st.textContent = 'Loading page…';
+    if (st) st.textContent = (window.TEI18n?.msg('suspendedLoadingPage','Loading page…') || 'Loading page…');
     location.replace(url);
   }
 
