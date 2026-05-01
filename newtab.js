@@ -1722,11 +1722,6 @@ function buildGroupCol(g) {
         ${smart ? renderFutureNotePreview(g) : ''}
       </div>
       <div class="gcol-acts">
-        ${smart ? `<button class="gcol-btn" data-act="intent" title="Edit intention">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1.5a3.6 3.6 0 013.6 3.6c0 2.2-1.5 3.2-3.1 3.8l-.2.1v1.5M6 10.8h.01" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-        </button>
-        <button class="gcol-btn" data-act="future" title="Future Me notes">✎</button>
-        <button class="gcol-btn" data-act="resume" title="Resume">▶</button>` : ''}
         <button class="gcol-btn focus" data-act="focus" title="Expand to full page">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4V2h2M10 4V2H8M2 8v2h2M10 8v2H8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
@@ -2275,11 +2270,6 @@ function buildStack(it, parentItems, group) {
       <span class="stack-sym">${esc(it.symbol || '📚')}</span>
       <input class="stack-name" value="${esc(it.name || 'Stack')}" spellcheck="false">
       <span class="stack-cnt">${cnt}</span>
-      ${smart ? `<button class="stack-intent-btn" title="Edit intention">
-        <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1.5a3.6 3.6 0 013.6 3.6c0 2.2-1.5 3.2-3.1 3.8l-.2.1v1.5M6 10.8h.01" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-      </button>
-      <button class="stack-intent-btn" data-act="future" title="Future Me">✎</button>
-      <button class="stack-intent-btn" data-act="resume" title="Resume">▶</button>` : ''}
     </div>
     ${smart ? renderIntentPills(it) : ''}
     ${smart ? renderHeartbeat(it) : ''}
@@ -2310,11 +2300,6 @@ function buildStack(it, parentItems, group) {
     ]);
   });
   el.querySelector('.stack-sym').addEventListener('click', e => { e.stopPropagation(); openEmojiPicker({ kind:'stack', id: it.id }, e.currentTarget); });
-  if (smart) {
-    el.querySelector('.stack-intent-btn').addEventListener('click', e => { e.stopPropagation(); openIntentEditor('stack', it.id); });
-    el.querySelector('[data-act="future"]').addEventListener('click', e => { e.stopPropagation(); openFutureEditor('stack', it.id); });
-    el.querySelector('[data-act="resume"]').addEventListener('click', e => { e.stopPropagation(); openResumePanel('stack', it.id); });
-  }
   const nm = el.querySelector('.stack-name');
   nm.addEventListener('click', e => e.stopPropagation());
   nm.addEventListener('blur', () => { if (nm.value.trim() && nm.value.trim() !== it.name) { State.snapshot('Rename stack'); it.name = nm.value.trim(); State.persist(); } });
