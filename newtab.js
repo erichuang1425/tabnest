@@ -25,8 +25,22 @@ const State = (() => {
       const d = await chrome.storage.local.get('te');
       if (d.te) state = { ...state, ...d.te, settings: { ...state.settings, ...(d.te.settings || {}) } };
     },
-    persist() { clearTimeout(persistTimer); persistTimer = setTimeout(() => chrome.storage.local.set({ te: state }), 180); },
-    persistNow() { clearTimeout(persistTimer); return chrome.storage.local.set({ te: state }); },
+    persist() {
+      clearTimeout(persistTimer);
+      persistTimer = setTimeout(() => {
+        chrome.storage.local.set({ te: state }).catch(err => {
+          try { toast('Storage error: ' + (err?.message || err), { danger: true, duration: 5000 }); } catch {}
+        });
+      }, 180);
+    },
+    persistNow() {
+      clearTimeout(persistTimer);
+      const p = chrome.storage.local.set({ te: state });
+      p.catch(err => {
+        try { toast('Storage error: ' + (err?.message || err), { danger: true, duration: 5000 }); } catch {}
+      });
+      return p;
+    },
     snapshot(label) {
       history.push({ label, data: deepClone(state) });
       if (history.length > 50) history.shift();

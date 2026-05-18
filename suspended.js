@@ -53,7 +53,12 @@
     loading = true;
     var st = document.getElementById('status-text');
     if (st) st.textContent = 'Loading page…';
-    location.replace(url);
+    try {
+      location.replace(url);
+    } catch (e) {
+      loading = false;
+      if (st) st.textContent = 'Failed to load. Click to retry.';
+    }
   }
 
   function isForeground() {

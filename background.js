@@ -61,15 +61,15 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     const ok = await addToInbox({ id: uid(), type:'tab', title:tab.title||'Untitled', url:tab.url, fav:tab.favIconUrl||'' });
     if (ok) flash();
   } else if (info.menuItemId === 'te-save-link') {
-    await addToInbox({ id: uid(), type:'tab', title: info.selectionText || info.linkUrl, url: info.linkUrl, fav:'' });
-    flash();
+    const ok = await addToInbox({ id: uid(), type:'tab', title: info.selectionText || info.linkUrl, url: info.linkUrl, fav:'' });
+    if (ok) flash(); else flash('dup', '#f97316');
   } else if (info.menuItemId === 'te-save-selection') {
     const src = tab?.url ? `\n\n— from ${tab.url}` : '';
-    await addToInbox({ id: uid(), type:'note', html: escapeHtml(info.selectionText) + escapeHtml(src), color:null });
-    flash();
+    const ok = await addToInbox({ id: uid(), type:'note', html: escapeHtml(info.selectionText) + escapeHtml(src), color:null });
+    if (ok) flash(); else flash('dup', '#f97316');
   } else if (info.menuItemId === 'te-save-image') {
-    await addToInbox({ id: uid(), type:'tab', title: 'Image', url: info.srcUrl, fav:'' });
-    flash();
+    const ok = await addToInbox({ id: uid(), type:'tab', title: 'Image', url: info.srcUrl, fav:'' });
+    if (ok) flash(); else flash('dup', '#f97316');
   } else if (info.menuItemId === 'te-save-all' && tab) {
     let s = await getState();
     s = await ensureDefault(s);
