@@ -3416,6 +3416,7 @@ function buildLvGroup(g) {
     <span class="lv-group-cnt">${g.items.length}</span>
     ${todoStat}
     <div class="lv-group-acts">
+      <button class="lv-act-btn" data-act="focus" title="Expand to full page"><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 4V2h2M10 4V2H8M2 8v2h2M10 8v2H8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <button class="lv-act-btn" data-act="open-all" title="Open all"><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M4 2.5H2a1 1 0 00-1 1v6.5A1 1 0 002 11h6.5a1 1 0 001-1V8M7 1h4m0 0v4M11 1L5.5 6.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <button class="lv-act-btn" data-act="add-tab" title="Add current tab"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
       <button class="lv-act-btn" data-act="more" title="More"><svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor"><circle cx="3" cy="6" r="1"/><circle cx="6" cy="6" r="1"/><circle cx="9" cy="6" r="1"/></svg></button>
@@ -3446,7 +3447,8 @@ function buildLvGroup(g) {
   hd.querySelectorAll('.lv-act-btn').forEach(btn => btn.addEventListener('click', async (e) => {
     e.stopPropagation();
     const act = btn.dataset.act;
-    if (act === 'open-all') openGroupAll(g.id);
+    if (act === 'focus') openGroupFocus(g.id);
+    else if (act === 'open-all') openGroupAll(g.id);
     else if (act === 'add-tab') {
       const [t] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (t && !isProto(t.url)) {
