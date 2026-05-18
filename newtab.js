@@ -301,6 +301,45 @@ function applySettings() {
 }
 
 // ════════════════════════════════════════════════════════════════
+// FOCUS MANAGEMENT (overlays + keyboard activation)
+// ════════════════════════════════════════════════════════════════
+const _overlayOpeners = new WeakMap();
+function rememberOpener(el) {
+  const opener = document.activeElement;
+  if (opener && opener !== document.body) _overlayOpeners.set(el, opener);
+}
+function restoreOpener(el) {
+  const opener = _overlayOpeners.get(el);
+  if (opener && typeof opener.focus === 'function') {
+    try { opener.focus(); } catch {}
+  }
+  _overlayOpeners.delete(el);
+}
+function focusFirstIn(el) {
+  if (!el) return;
+  const focusable = el.querySelector('input:not([disabled]),button:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])');
+  if (focusable) { try { focusable.focus(); } catch {} }
+}
+function trapTabKey(e, container) {
+  if (e.key !== 'Tab' || !container || container.classList.contains('hidden')) return;
+  const items = container.querySelectorAll('input:not([disabled]),button:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])');
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1];
+  const active = document.activeElement;
+  if (e.shiftKey && (active === first || !container.contains(active))) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && (active === last || !container.contains(active))) { e.preventDefault(); first.focus(); }
+}
+function enableKeyboardClick(el) {
+  if (!el || el.dataset.kbReady === '1') return;
+  if (!el.hasAttribute('role')) el.setAttribute('role', 'button');
+  if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); }
+  });
+  el.dataset.kbReady = '1';
+}
+
+// ════════════════════════════════════════════════════════════════
 // TOAST
 // ════════════════════════════════════════════════════════════════
 let toastTimer;
@@ -751,13 +790,20 @@ function openModal(kind, ctx) {
   else if (kind === 'new-cat') { $t.textContent = 'New Category'; $ok.textContent = 'Create'; $inp.value = ''; $sLbl.style.display = 'none'; emTrig.style.display = 'none'; $cLbl.style.display = 'none'; $cRow.style.display = 'none'; }
   else if (kind === 'new-stack') { $t.textContent = 'New Stack'; $ok.textContent = 'Create'; $inp.value = ''; $sym.textContent = '📚'; selColor('#6366f1'); }
 
-  document.getElementById('modal-overlay').classList.remove('hidden');
+  const overlay = document.getElementById('modal-overlay');
+  rememberOpener(overlay);
+  overlay.classList.remove('hidden');
   setTimeout(() => $inp.focus(), 50);
 }
 function selColor(c) {
   document.querySelectorAll('.csw').forEach(x => x.classList.toggle('active', x.dataset.c === c));
 }
-function closeModal() { document.getElementById('modal-overlay').classList.add('hidden'); modalCtx = null; }
+function closeModal() {
+  const overlay = document.getElementById('modal-overlay');
+  overlay.classList.add('hidden');
+  restoreOpener(overlay);
+  modalCtx = null;
+}
 function openIntentEditor(targetKind, targetId) {
   let entity = null;
   let title = 'Edit Intention';
@@ -2894,6 +2940,8 @@ function bindSubs() {
       document.querySelectorAll('#sub-color-row .csw').forEach(x => x.classList.remove('active'));
       c.classList.add('active');
     };
+    c.setAttribute('aria-label', 'Color ' + (c.dataset.c || ''));
+    enableKeyboardClick(c);
   });
   // Auto-icon when category changes (only if not manually set)
   document.getElementById('sub-cat').onchange = e => {
@@ -4705,9 +4753,14 @@ function bindStatic() {
     toast(`Theme: ${t?.label || State.get().settings.theme}`);
   };
   document.getElementById('save-session-btn').onclick = saveAllTabs;
-  document.getElementById('settings-btn').onclick = () => { document.getElementById('settings-drawer').classList.remove('hidden'); renderArchiveList(); };
-  document.getElementById('drawer-x').onclick = () => document.getElementById('settings-drawer').classList.add('hidden');
-  document.getElementById('settings-drawer').onclick = e => { if (e.target.id === 'settings-drawer') document.getElementById('settings-drawer').classList.add('hidden'); };
+  const _drawer = document.getElementById('settings-drawer');
+  const _openDrawer = () => { rememberOpener(_drawer); _drawer.classList.remove('hidden'); renderArchiveList(); setTimeout(() => focusFirstIn(_drawer), 50); };
+  const _closeDrawer = () => { _drawer.classList.add('hidden'); restoreOpener(_drawer); };
+  document.getElementById('settings-btn').onclick = _openDrawer;
+  document.getElementById('drawer-x').onclick = _closeDrawer;
+  _drawer.onclick = e => { if (e.target.id === 'settings-drawer') _closeDrawer(); };
+  _drawer.addEventListener('keydown', e => trapTabKey(e, _drawer));
+  document.getElementById('modal-overlay').addEventListener('keydown', e => trapTabKey(e, document.getElementById('modal-overlay')));
   document.getElementById('search-btn').onclick = () => toggleSearchBar();
   document.getElementById('undo-btn').onclick = performUndo;
 
@@ -4726,7 +4779,11 @@ function bindStatic() {
   document.getElementById('intent-clear').onclick = clearIntentEditor;
   document.getElementById('intent-overlay').onclick = e => { if (e.target.id === 'intent-overlay') closeIntentEditor(); };
   document.getElementById('emoji-trigger').onclick = e => { e.stopPropagation(); openEmojiPicker({ kind:'modal' }, e.currentTarget); };
-  document.querySelectorAll('.csw').forEach(c => c.onclick = () => { document.querySelectorAll('.csw').forEach(x => x.classList.remove('active')); c.classList.add('active'); });
+  document.querySelectorAll('.csw').forEach(c => {
+    c.onclick = () => { document.querySelectorAll('.csw').forEach(x => x.classList.remove('active')); c.classList.add('active'); };
+    c.setAttribute('aria-label', 'Color ' + (c.dataset.c || ''));
+    enableKeyboardClick(c);
+  });
 
   // Emoji picker search
   document.getElementById('ep-search-input').oninput = e => renderEmojiGrid(null, e.target.value);
@@ -4765,16 +4822,19 @@ function bindStatic() {
     const editable = document.activeElement?.isContentEditable;
     const inField = tag === 'INPUT' || tag === 'TEXTAREA' || editable;
 
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && !e.shiftKey) { e.preventDefault(); toggleSearchBar(); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && !e.shiftKey && !inField) { e.preventDefault(); toggleSearchBar(); }
     else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z' && !inField) { e.preventDefault(); performUndo(); }
     else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z' && !inField) { e.preventDefault(); performRedo(); }
     else if (e.key === 's' && !inField) { e.preventDefault(); document.getElementById('tab-filter').focus(); }
     else if (e.key === 'Escape') {
       toggleSearchBar(false);
       closeModal();
-      document.getElementById('settings-drawer').classList.add('hidden');
+      const _d = document.getElementById('settings-drawer');
+      if (!_d.classList.contains('hidden')) { _d.classList.add('hidden'); restoreOpener(_d); }
       document.getElementById('ws-grid-overlay').classList.add('hidden');
       document.getElementById('ws-list').classList.add('hidden');
+      document.getElementById('emoji-picker')?.classList.add('hidden');
+      document.getElementById('subs-overlay')?.classList.add('hidden');
       const tourEl = document.getElementById('tour-overlay');
       if (tourEl && !tourEl.classList.contains('hidden')) endTour(true);
       const focusEl = document.getElementById('group-focus-overlay');
