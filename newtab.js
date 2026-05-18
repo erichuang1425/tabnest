@@ -2598,32 +2598,201 @@ async function importBookmarks() {
   State.persist(); renderBoard();
   toast(`Imported ${imported}`, { undo: true });
 }
+function countState(s) {
+  let workspaces = 0, categories = 0, groups = 0, items = 0;
+  const countItems = (list) => {
+    for (const it of (list || [])) {
+      items++;
+      if (it && it.type === 'stack') countItems(it.items);
+    }
+  };
+  for (const ws of (s.workspaces || [])) {
+    workspaces++;
+    for (const cat of (ws.categories || [])) {
+      categories++;
+      for (const g of (cat.groups || [])) {
+        groups++;
+        countItems(g.items);
+      }
+    }
+  }
+  return { workspaces, categories, groups, items, archived: (s.archive || []).length };
+}
+
+function pluralize(n, word) { return `${n} ${word}${n === 1 ? '' : 's'}`; }
+
 function exportJSON() {
-  const blob = new Blob([JSON.stringify(State.get(), null, 2)], { type:'application/json' });
+  const data = State.get();
+  const counts = countState(data);
+  const payload = {
+    app: 'tabextend',
+    schema: 3,
+    exportedAt: new Date().toISOString(),
+    counts,
+    data
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `tabextend-${new Date().toISOString().slice(0,10)}.json`; a.click();
+  const wsTag = counts.workspaces ? `-${counts.workspaces}ws` : '';
+  a.href = url;
+  a.download = `tabextend${wsTag}-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
   URL.revokeObjectURL(url);
-  toast('Exported');
+  toast(`Exported · ${pluralize(counts.workspaces, 'workspace')} · ${pluralize(counts.items, 'item')}`);
 }
+
+let importCtx = null;
+
 function importJSON(file) {
   const r = new FileReader();
   r.onload = () => {
-    try {
-      const d = JSON.parse(r.result);
-      if (!d.workspaces) throw new Error('Invalid');
-      if (confirm('Replace all current data with imported?')) {
-        State.snapshot('Import');
-        Object.assign(State.get(), d);
-        migrate();
-        State.persist();
-        applySettings();
-        renderAll();
-        toast('Imported');
-      }
-    } catch { toast('Invalid file', { danger: true }); }
+    let parsed;
+    try { parsed = JSON.parse(r.result); }
+    catch (e) {
+      const m = (e && e.message || '').match(/position (\d+)/i);
+      const where = m ? ` (position ${m[1]})` : '';
+      toast(`Invalid JSON${where}`, { danger: true, duration: 5000 });
+      return;
+    }
+    let data, schema, exportedAt;
+    if (parsed && parsed.app === 'tabextend' && parsed.data && typeof parsed.data === 'object') {
+      data = parsed.data;
+      schema = parsed.schema;
+      exportedAt = parsed.exportedAt;
+    } else if (parsed && Array.isArray(parsed.workspaces)) {
+      data = parsed;
+      schema = 'legacy';
+    } else {
+      toast('Invalid file: missing workspaces field', { danger: true, duration: 5000 });
+      return;
+    }
+    if (!Array.isArray(data.workspaces)) {
+      toast('Invalid file: workspaces is not an array', { danger: true, duration: 5000 });
+      return;
+    }
+    const counts = countState(data);
+    importCtx = { data, counts, filename: file.name, exportedAt, schema };
+    openImportPreview();
   };
+  r.onerror = () => toast('Could not read file', { danger: true, duration: 5000 });
   r.readAsText(file);
+}
+
+function openImportPreview() {
+  if (!importCtx) return;
+  const { counts, filename, exportedAt, schema } = importCtx;
+  document.getElementById('import-filename').textContent = filename || '—';
+  document.getElementById('import-date').textContent = exportedAt
+    ? new Date(exportedAt).toLocaleString()
+    : 'Unknown';
+  document.getElementById('import-schema').textContent =
+    schema === 'legacy' ? 'Legacy' : (schema != null ? String(schema) : '—');
+  const cells = [
+    ['workspaces', 'Workspaces'],
+    ['categories', 'Categories'],
+    ['groups', 'Groups'],
+    ['items', 'Items'],
+    ['archived', 'Archived']
+  ];
+  const c = document.getElementById('import-counts');
+  c.textContent = '';
+  cells.forEach(([k, lbl]) => {
+    const el = document.createElement('div');
+    el.className = 'import-count';
+    const num = document.createElement('div');
+    num.className = 'import-count-num';
+    num.textContent = String(counts[k] ?? 0);
+    const lblEl = document.createElement('div');
+    lblEl.className = 'import-count-lbl';
+    lblEl.textContent = lbl;
+    el.append(num, lblEl);
+    c.append(el);
+  });
+  const replaceRadio = document.querySelector('input[name="import-mode"][value="replace"]');
+  if (replaceRadio) replaceRadio.checked = true;
+  const overlay = document.getElementById('import-overlay');
+  rememberOpener(overlay);
+  overlay.classList.remove('hidden');
+  setTimeout(() => focusFirstIn(overlay), 50);
+}
+
+function closeImportPreview() {
+  const overlay = document.getElementById('import-overlay');
+  overlay.classList.add('hidden');
+  restoreOpener(overlay);
+  importCtx = null;
+  const inp = document.getElementById('import-file');
+  if (inp) inp.value = '';
+}
+
+function applyImportReplace(data) {
+  State.snapshot('Import');
+  const s = State.get();
+  const mergedSettings = { ...s.settings, ...(data.settings || {}) };
+  Object.assign(s, data);
+  s.settings = mergedSettings;
+  migrate();
+  State.persist();
+  applySettings();
+  renderAll();
+  const c = countState(s);
+  toast(`Imported · ${pluralize(c.workspaces, 'workspace')} · ${pluralize(c.items, 'item')}`, { undo: true });
+}
+
+function applyImportMerge(data) {
+  const s = State.get();
+  const before = countState(s);
+  State.snapshot('Merge import');
+  const existingWsIds = new Set(s.workspaces.map(w => w.id));
+  let addedWs = 0;
+  for (const ws of (data.workspaces || [])) {
+    const incoming = JSON.parse(JSON.stringify(ws));
+    if (existingWsIds.has(incoming.id)) incoming.id = uid();
+    delete incoming.windowId;
+    s.workspaces.push(incoming);
+    existingWsIds.add(incoming.id);
+    addedWs++;
+  }
+  s.archive = s.archive || [];
+  const existingArchiveIds = new Set(s.archive.map(a => a && a.id).filter(Boolean));
+  for (const a of (data.archive || [])) {
+    if (a && a.id && !existingArchiveIds.has(a.id)) {
+      s.archive.push(JSON.parse(JSON.stringify(a)));
+      existingArchiveIds.add(a.id);
+    }
+  }
+  if (Array.isArray(data.recentEmoji)) {
+    s.recentEmoji = s.recentEmoji || [];
+    const seen = new Set(s.recentEmoji);
+    for (const e of data.recentEmoji) if (!seen.has(e)) { s.recentEmoji.push(e); seen.add(e); }
+  }
+  if (data.columnWidths && typeof data.columnWidths === 'object') {
+    s.columnWidths = { ...(s.columnWidths || {}), ...data.columnWidths };
+  }
+  migrate();
+  State.persist();
+  renderAll();
+  const after = countState(s);
+  const addedItems = after.items - before.items;
+  toast(`Merged · +${pluralize(addedWs, 'workspace')} · +${pluralize(addedItems, 'item')}`, { undo: true });
+}
+
+function bindImportUI() {
+  const overlay = document.getElementById('import-overlay');
+  if (!overlay) return;
+  document.getElementById('import-x').onclick = closeImportPreview;
+  document.getElementById('import-cancel').onclick = closeImportPreview;
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeImportPreview(); });
+  overlay.addEventListener('keydown', e => trapTabKey(e, overlay));
+  document.getElementById('import-confirm').onclick = () => {
+    if (!importCtx) { closeImportPreview(); return; }
+    const mode = document.querySelector('input[name="import-mode"]:checked')?.value || 'replace';
+    const { data } = importCtx;
+    closeImportPreview();
+    if (mode === 'merge') applyImportMerge(data);
+    else applyImportReplace(data);
+  };
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -4842,6 +5011,8 @@ function bindStatic() {
       document.getElementById('ws-list').classList.add('hidden');
       document.getElementById('emoji-picker')?.classList.add('hidden');
       document.getElementById('subs-overlay')?.classList.add('hidden');
+      const _imp = document.getElementById('import-overlay');
+      if (_imp && !_imp.classList.contains('hidden')) closeImportPreview();
       const tourEl = document.getElementById('tour-overlay');
       if (tourEl && !tourEl.classList.contains('hidden')) endTour(true);
       const focusEl = document.getElementById('group-focus-overlay');
@@ -4862,6 +5033,7 @@ function bindStatic() {
 
   bindRtToolbar();
   bindReminderUI();
+  bindImportUI();
   bindSubs();
   bindToolsHub();
   bindPomo();

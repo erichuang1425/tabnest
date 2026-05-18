@@ -279,6 +279,47 @@
     </div>
   </div>
 
+  <!-- Import preview overlay -->
+  <div id="import-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="import-title">
+    <div class="rm-panel">
+      <div class="modal-hd">
+        <h2 id="import-title">Import data</h2>
+        <button id="import-x" class="icon-btn" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="modal-bd">
+        <div class="import-meta">
+          <div class="import-meta-row"><span class="import-meta-key">File</span><span id="import-filename" class="import-meta-val">—</span></div>
+          <div class="import-meta-row"><span class="import-meta-key">Exported</span><span id="import-date" class="import-meta-val">—</span></div>
+          <div class="import-meta-row"><span class="import-meta-key">Schema</span><span id="import-schema" class="import-meta-val">—</span></div>
+        </div>
+        <div class="import-counts" id="import-counts"></div>
+        <fieldset class="import-mode">
+          <legend class="field-lbl">Mode</legend>
+          <label class="import-mode-opt">
+            <input type="radio" name="import-mode" value="replace" checked>
+            <div>
+              <div class="import-mode-title">Replace all</div>
+              <div class="import-mode-sub">Restore from this file. Existing workspaces, archive, and settings present in the file will be overwritten.</div>
+            </div>
+          </label>
+          <label class="import-mode-opt">
+            <input type="radio" name="import-mode" value="merge">
+            <div>
+              <div class="import-mode-title">Merge</div>
+              <div class="import-mode-sub">Append workspaces and archived items. Keep current settings and tool data untouched.</div>
+            </div>
+          </label>
+        </fieldset>
+      </div>
+      <div class="modal-ft">
+        <button id="import-cancel" class="btn-secondary">Cancel</button>
+        <button id="import-confirm" class="btn-primary">Import</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Settings drawer -->
   <div id="settings-drawer" class="hidden">
     <div class="drawer-bd">
