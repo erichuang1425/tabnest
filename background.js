@@ -9,7 +9,6 @@ async function getState() {
 async function setState(s) {
   try {
     await chrome.storage.local.set({ te: s });
-    return true;
   } catch (err) {
     console.error('TabExtend storage write failed:', err);
     if (/quota/i.test(String(err?.message || err))) {
@@ -23,7 +22,9 @@ async function setState(s) {
         });
       } catch {}
     }
-    return false;
+    // Re-throw so awaiting callers (addToInbox, save-all handler) don't
+    // run their success path on a failed write.
+    throw err;
   }
 }
 
