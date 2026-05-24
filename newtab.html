@@ -770,20 +770,24 @@
   </div>
 
   <!-- ══════ ONBOARDING TOUR ══════ -->
-  <div id="tour-overlay" class="hidden">
+  <div id="tour-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="tour-title">
     <div class="tour-backdrop"></div>
     <div class="tour-spotlight" id="tour-spotlight"></div>
     <div class="tour-bubble" id="tour-bubble">
       <h3 id="tour-title"></h3>
       <p id="tour-body"></p>
       <div class="tour-bubble-foot">
-        <button class="tour-skip" id="tour-skip">Skip tour</button>
-        <div class="tour-progress" id="tour-progress"></div>
+        <button class="tour-skip" id="tour-skip">Skip</button>
+        <div class="tour-progress-wrap">
+          <span class="tour-count" id="tour-count" aria-live="polite"></span>
+          <div class="tour-progress" id="tour-progress"></div>
+        </div>
         <div class="tour-actions">
           <button class="tour-btn" id="tour-prev">Back</button>
           <button class="tour-btn primary" id="tour-next">Next</button>
         </div>
       </div>
+      <div class="tour-hint">← / → to navigate · Esc to close</div>
     </div>
   </div>
 

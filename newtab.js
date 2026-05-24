@@ -3792,21 +3792,47 @@ function renderFloatingWidgets() {
     layer.id = 'floating-layer';
     document.body.appendChild(layer);
   }
-  layer.innerHTML = '';
-  const f = getFloating();
-  f.forEach(w => layer.appendChild(buildFloatingWidget(w)));
+  const wanted = new Map(getFloating().map(w => [w.tool, w]));
+  // Tear down widgets that are no longer in state. Leaving the rest alone
+  // (instead of rebuilding everything) avoids the entrance animation
+  // flickering on every open/close, and prevents global drag listeners
+  // from being re-registered on widgets that didn't change.
+  layer.querySelectorAll('.fw-window').forEach(el => {
+    const tool = el.dataset.tool;
+    if (!wanted.has(tool)) {
+      if (el._abort) try { el._abort.abort(); } catch {}
+      const body = el.querySelector('.fw-body');
+      if (body && body._pomoUpdater) { clearInterval(body._pomoUpdater); body._pomoUpdater = null; }
+      el.remove();
+    } else {
+      // Sync existing widget's position from state in case it changed.
+      const w = wanted.get(tool);
+      if (el.style.left !== w.x + 'px') el.style.left = w.x + 'px';
+      if (el.style.top !== w.y + 'px') el.style.top = w.y + 'px';
+      wanted.delete(tool);
+    }
+  });
+  // Mount only newly added widgets — these animate in fresh.
+  wanted.forEach(w => layer.appendChild(buildFloatingWidget(w)));
 }
 
 function buildFloatingWidget(w) {
   const meta = FLOATING_TOOLS[w.tool] || { title: w.tool, icon: '⚡' };
   const el = document.createElement('div');
   el.className = 'fw-window' + (w.minimized ? ' minimized' : '');
+  el.dataset.tool = w.tool;
   el.style.left = w.x + 'px';
   el.style.top = w.y + 'px';
   if (!w.minimized) {
     el.style.width = w.w + 'px';
     el.style.height = w.h + 'px';
   }
+
+  // Per-widget AbortController so global drag/resize listeners get cleaned
+  // up when the widget is torn down (prevents listener-leak induced lag).
+  const ac = new AbortController();
+  el._abort = ac;
+  const sig = ac.signal;
 
   el.innerHTML = `
     <div class="fw-titlebar">
@@ -3840,7 +3866,7 @@ function buildFloatingWidget(w) {
       else if (a === 'min') {
         w.minimized = !w.minimized;
         State.persist();
-        renderFloatingWidgets();
+        toggleFloatingMinimize(el, w);
       } else if (a === 'open') {
         // Open the full tool overlay AND remove from floating
         closeFloating(w.tool);
@@ -3856,7 +3882,8 @@ function buildFloatingWidget(w) {
     };
   });
 
-  // Drag the title bar
+  // Drag the title bar — rAF throttled to keep at 60fps and avoid jank
+  // even when several widgets are open.
   const tb = el.querySelector('.fw-titlebar');
   let dragging = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
   tb.addEventListener('mousedown', (e) => {
@@ -3867,22 +3894,22 @@ function buildFloatingWidget(w) {
     el.classList.add('fw-dragging');
     el.style.zIndex = 9999;
     e.preventDefault();
-  });
-  const onMove = (e) => {
+  }, { signal: sig });
+  const onMove = rafThrottle((e) => {
     if (!dragging) return;
     w.x = Math.max(0, Math.min(window.innerWidth - 60, startLeft + (e.clientX - startX)));
     w.y = Math.max(0, Math.min(window.innerHeight - 30, startTop + (e.clientY - startY)));
     el.style.left = w.x + 'px';
     el.style.top = w.y + 'px';
-  };
+  });
   const onUp = () => {
     if (!dragging) return;
     dragging = false;
     el.classList.remove('fw-dragging');
     State.persist();
   };
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
+  document.addEventListener('mousemove', onMove, { signal: sig });
+  document.addEventListener('mouseup', onUp, { signal: sig });
 
   // Resize
   const resizer = el.querySelector('.fw-resize');
@@ -3894,31 +3921,53 @@ function buildFloatingWidget(w) {
       rsw = w.w; rsh = w.h;
       e.stopPropagation();
       e.preventDefault();
-    });
-    const onResMove = (e) => {
+    }, { signal: sig });
+    const onResMove = rafThrottle((e) => {
       if (!resizing) return;
       w.w = Math.max(220, rsw + (e.clientX - rsx));
       w.h = Math.max(120, rsh + (e.clientY - rsy));
       el.style.width = w.w + 'px';
       el.style.height = w.h + 'px';
-    };
+    });
     const onResUp = () => {
       if (!resizing) return;
       resizing = false;
       State.persist();
       renderFloatingBody(w.tool, body);
     };
-    document.addEventListener('mousemove', onResMove);
-    document.addEventListener('mouseup', onResUp);
+    document.addEventListener('mousemove', onResMove, { signal: sig });
+    document.addEventListener('mouseup', onResUp, { signal: sig });
   }
 
   // Bring to front on click
   el.addEventListener('mousedown', () => {
     el.style.zIndex = 9999;
     document.querySelectorAll('.fw-window').forEach(o => { if (o !== el) o.style.zIndex = 9990; });
-  });
+  }, { signal: sig });
 
   return el;
+}
+
+// In-place minimize/restore avoids the full rebuild that re-runs the
+// fwIn entrance animation across every widget (which is what made
+// the popouts flicker on toggle).
+function toggleFloatingMinimize(el, w) {
+  if (w.minimized) {
+    el.classList.add('minimized');
+    el.style.width = '';
+    el.style.height = '';
+  } else {
+    el.classList.remove('minimized');
+    el.style.width = w.w + 'px';
+    el.style.height = w.h + 'px';
+    const body = el.querySelector('.fw-body');
+    if (body) renderFloatingBody(w.tool, body);
+  }
+  const minBtn = el.querySelector('.fw-btn[data-act="min"]');
+  if (minBtn) {
+    minBtn.title = w.minimized ? 'Restore' : 'Minimize';
+    minBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10"><path d="${w.minimized ? 'M2 4h6v2H2z' : 'M2 7h6'}" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/></svg>`;
+  }
 }
 
 function renderFloatingBody(tool, container) {
@@ -6003,37 +6052,55 @@ function bindWorkout() {
 // ════════════════════════════════════════════════════════════════
 // ONBOARDING TOUR
 // ════════════════════════════════════════════════════════════════
+// Step shape:
+//   { target: '#sel'|null, title, body, pos?: 'left'|'right'|'above'|'below',
+//     center?: bool — render a centered card with no spotlight (welcome/finish) }
 const TOUR_STEPS = [
   {
-    target: '#ws-chips-stack',
+    center: true,
     title: '👋 Welcome to TabExtend',
-    body: 'Your workspace lives here. Each open browser window can become its own workspace — perfect for separating work, study, and personal browsing.'
+    body: 'A calmer place for your tabs. In about 30 seconds you\'ll know how to save, organise, and find anything again. Use ← / → to step through, or Esc to skip.'
+  },
+  {
+    target: '#ws-chips-stack',
+    title: '🏠 Workspaces',
+    body: 'Group your work into separate spaces — Work, Study, Side project. Each one keeps its own tabs, notes, and tools. Switch between them by clicking a chip.'
   },
   {
     target: '#open-tabs',
     title: '📑 Your open tabs',
-    body: 'These are the tabs in this window. Click the checkbox to select them, or drag any tab into a group on the right to save it for later.'
+    body: 'Every tab in this window shows up here. Drag one onto the board to save it for later, or use the checkbox to grab several at once.'
   },
   {
     target: '#board',
-    title: '🗂️ The workspace',
-    body: 'Save tabs into groups. Mix in notes and to-dos. Stack related items together. Right-click anything for more actions.',
+    title: '🗂️ The board',
+    body: 'Drop tabs into groups, mix in notes, jot down to-dos. Right-click anything for more actions, and drag to reorder.',
     pos: 'left'
+  },
+  {
+    target: '#cat-tabs-wrap',
+    title: '📂 Categories',
+    body: 'Cut a workspace into themed sections — Reading, Tasks, Inspiration. Tabs land in the active category by default.'
   },
   {
     target: '#tools-btn',
     title: '⚡ Productivity tools',
-    body: 'Pomodoro timer, finance tracker, habits, hydration, reading log, goals, and more — all built in.'
+    body: 'Pomodoro, finance diary, habits, hydration, goals, reading log and more — pop any of them out as a floating widget while you work.'
   },
   {
     target: '#view-mode-btn',
-    title: '🔄 Two view modes',
-    body: 'Toggle between board (columns) and list view (Notion-style nested rows). Pick whichever fits your brain.'
+    title: '🔄 Switch how it looks',
+    body: 'Toggle between board columns, a Notion-style list, and a freeform canvas. Pick whichever fits the mood.'
   },
   {
     target: '#search-btn',
-    title: '🔍 You\'re all set',
-    body: 'Search anything with Ctrl/⌘+K. Press Esc to close overlays. Right-click for context menus. Have fun!'
+    title: '🔍 Find anything',
+    body: 'Ctrl/⌘ + K searches every tab, note, and archive across all workspaces. Esc closes overlays, and ? opens the full shortcut sheet.'
+  },
+  {
+    center: true,
+    title: '🎉 You\'re ready',
+    body: 'That\'s the lot. You can replay this any time from Settings → Show tour. Now go make something happen.'
   }
 ];
 
@@ -6042,66 +6109,111 @@ let tourIndex = 0;
 function startTour() {
   tourIndex = 0;
   document.getElementById('tour-overlay').classList.remove('hidden');
+  // Entrance animation runs once on tour mount; subsequent steps glide
+  // (no fresh fade) so the content swap doesn't read as a flicker.
+  const b = document.getElementById('tour-bubble');
+  b.classList.remove('tour-bubble-in');
+  void b.offsetWidth;
+  b.classList.add('tour-bubble-in');
   showTourStep();
 }
 function endTour(skipped) {
   document.getElementById('tour-overlay').classList.add('hidden');
   State.get().settings.tourCompleted = true;
   State.persist();
-  if (!skipped) toast('Tour complete!');
+  if (!skipped) toast('You\'re all set');
 }
 function showTourStep() {
   const step = TOUR_STEPS[tourIndex];
   if (!step) return endTour(false);
 
-  const target = document.querySelector(step.target);
   const spotlight = document.getElementById('tour-spotlight');
   const bubble = document.getElementById('tour-bubble');
 
-  if (!target) {
-    // Skip if target missing
-    tourIndex++;
-    return showTourStep();
-  }
+  // Centered intro/finish steps: no spotlight, bubble in the middle.
+  if (step.center || !step.target) {
+    spotlight.classList.add('tour-spotlight-off');
+    bubble.classList.add('center');
+    // Center based on measured size so the wider centered card stays middled.
+    requestAnimationFrame(() => {
+      const bw = bubble.offsetWidth || 420;
+      const bh = bubble.offsetHeight || 220;
+      bubble.style.top = Math.max(20, (window.innerHeight - bh) / 2) + 'px';
+      bubble.style.left = Math.max(20, (window.innerWidth - bw) / 2) + 'px';
+    });
+  } else {
+    const target = document.querySelector(step.target);
+    if (!target) {
+      // Skip silently if target missing in this view
+      tourIndex++;
+      return showTourStep();
+    }
+    spotlight.classList.remove('tour-spotlight-off');
+    bubble.classList.remove('center');
 
-  const r = target.getBoundingClientRect();
-  const pad = 6;
-  spotlight.style.top = (r.top - pad) + 'px';
-  spotlight.style.left = (r.left - pad) + 'px';
-  spotlight.style.width = (r.width + pad * 2) + 'px';
-  spotlight.style.height = (r.height + pad * 2) + 'px';
+    const r = target.getBoundingClientRect();
+    const pad = 6;
+    spotlight.style.top = (r.top - pad) + 'px';
+    spotlight.style.left = (r.left - pad) + 'px';
+    spotlight.style.width = (r.width + pad * 2) + 'px';
+    spotlight.style.height = (r.height + pad * 2) + 'px';
+
+    // Position bubble: respect pos hint, otherwise auto-fit below/above/side.
+    const bubbleW = 340, bubbleH = 200, gap = 16;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    let top, left;
+    const clampLeft = x => Math.min(vw - bubbleW - 20, Math.max(20, x));
+    const clampTop = y => Math.min(vh - bubbleH - 20, Math.max(20, y));
+    const fitBelow = r.bottom + bubbleH + gap < vh;
+    const fitAbove = r.top - bubbleH - gap > 20;
+    const fitRight = r.right + bubbleW + gap < vw;
+    const fitLeft  = r.left  - bubbleW - gap > 20;
+    const place = step.pos
+      || (fitBelow ? 'below' : fitAbove ? 'above' : fitRight ? 'right' : fitLeft ? 'left' : 'center');
+    if (place === 'left') {
+      left = clampLeft(r.left - bubbleW - gap);
+      top = clampTop(r.top + r.height/2 - bubbleH/2);
+    } else if (place === 'right') {
+      left = clampLeft(r.right + gap);
+      top = clampTop(r.top + r.height/2 - bubbleH/2);
+    } else if (place === 'above') {
+      top = clampTop(r.top - bubbleH - gap);
+      left = clampLeft(r.left + r.width/2 - bubbleW/2);
+    } else if (place === 'center') {
+      top = (vh - bubbleH) / 2;
+      left = (vw - bubbleW) / 2;
+    } else {
+      top = clampTop(r.bottom + gap);
+      left = clampLeft(r.left + r.width/2 - bubbleW/2);
+    }
+    bubble.style.top = top + 'px';
+    bubble.style.left = left + 'px';
+  }
 
   document.getElementById('tour-title').textContent = step.title;
   document.getElementById('tour-body').textContent = step.body;
 
-  // Position bubble - try below, fallback above, fallback right
-  const bubbleW = 320, bubbleH = 180;
-  let top, left;
-  if (step.pos === 'left') {
-    left = Math.max(20, r.left - bubbleW - 20);
-    top = Math.max(20, r.top + r.height/2 - bubbleH/2);
-  } else if (r.bottom + bubbleH + 20 < window.innerHeight) {
-    top = r.bottom + 14;
-    left = Math.min(window.innerWidth - bubbleW - 20, Math.max(20, r.left + r.width/2 - bubbleW/2));
-  } else if (r.top - bubbleH - 14 > 20) {
-    top = r.top - bubbleH - 14;
-    left = Math.min(window.innerWidth - bubbleW - 20, Math.max(20, r.left + r.width/2 - bubbleW/2));
-  } else {
-    top = Math.max(20, window.innerHeight/2 - bubbleH/2);
-    left = Math.max(20, r.right + 20);
-    if (left + bubbleW > window.innerWidth - 20) left = window.innerWidth/2 - bubbleW/2;
-  }
-  bubble.style.top = top + 'px';
-  bubble.style.left = left + 'px';
-
   // Progress dots
   const $prog = document.getElementById('tour-progress');
   $prog.innerHTML = TOUR_STEPS.map((_, i) => `<div class="tour-dot ${i === tourIndex ? 'active' : ''}"></div>`).join('');
+  $prog.querySelectorAll('.tour-dot').forEach((d, i) => {
+    d.title = `Step ${i + 1} of ${TOUR_STEPS.length}`;
+    d.style.cursor = 'pointer';
+    d.onclick = () => { tourIndex = i; showTourStep(); };
+  });
+
+  // Step counter
+  const $count = document.getElementById('tour-count');
+  if ($count) $count.textContent = `${tourIndex + 1} / ${TOUR_STEPS.length}`;
 
   // Buttons
-  document.getElementById('tour-prev').disabled = tourIndex === 0;
-  document.getElementById('tour-prev').style.visibility = tourIndex === 0 ? 'hidden' : 'visible';
-  document.getElementById('tour-next').textContent = tourIndex === TOUR_STEPS.length - 1 ? 'Done' : 'Next';
+  const $prev = document.getElementById('tour-prev');
+  const $next = document.getElementById('tour-next');
+  $prev.disabled = tourIndex === 0;
+  $prev.style.visibility = tourIndex === 0 ? 'hidden' : 'visible';
+  $next.textContent = tourIndex === TOUR_STEPS.length - 1 ? 'Finish' : 'Next';
+  // Auto-focus the primary action so Enter advances.
+  $next.focus({ preventScroll: true });
 }
 
 function bindTour() {
@@ -6111,10 +6223,25 @@ function bindTour() {
     if (tourIndex < TOUR_STEPS.length - 1) { tourIndex++; showTourStep(); }
     else endTour(false);
   };
-  // Reposition on resize
-  window.addEventListener('resize', () => {
-    if (!document.getElementById('tour-overlay').classList.contains('hidden')) showTourStep();
+  // Keyboard nav while the tour is visible — arrows step through,
+  // Enter/Space advances, Esc is already handled by the global key handler.
+  document.addEventListener('keydown', e => {
+    const ov = document.getElementById('tour-overlay');
+    if (!ov || ov.classList.contains('hidden')) return;
+    if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+      e.preventDefault();
+      if (tourIndex < TOUR_STEPS.length - 1) { tourIndex++; showTourStep(); }
+      else endTour(false);
+    } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+      e.preventDefault();
+      if (tourIndex > 0) { tourIndex--; showTourStep(); }
+    }
   });
+  // Reposition on resize — rAF-throttled so dragging the window doesn't
+  // recompute layout dozens of times per second.
+  window.addEventListener('resize', rafThrottle(() => {
+    if (!document.getElementById('tour-overlay').classList.contains('hidden')) showTourStep();
+  }));
 }
 
 // ════════════════════════════════════════════════════════════════
