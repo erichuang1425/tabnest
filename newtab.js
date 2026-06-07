@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   TabExtend — newtab.js (v3)
+   TabNest — newtab.js (v3)
    ═══════════════════════════════════════════════════════════════ */
 
 // Schema version of the in-storage state. Bump when state shape changes,
@@ -384,7 +384,7 @@ function bindQuotaOverlay() {
 function showSchemaMismatch(found) {
   const overlay = document.getElementById('schema-overlay');
   if (!overlay) {
-    alert(`This data was created by a newer TabExtend (schema ${found}). Update the extension before opening.`);
+    alert(`This data was created by a newer version (schema ${found}). Update the extension before opening.`);
     return;
   }
   const det = document.getElementById('schema-detail');
@@ -517,7 +517,7 @@ function ensureDefault() {
     cat.groups.push({
       id: uid(), name:'Getting started', symbol:'✨', color:'#6366f1', collapsed:false,
       items: [
-        { id: uid(), type:'note', html:'👋 <b>Welcome to TabExtend!</b><br><br>Drag tabs from the left sidebar into any group.<br>Select text for the rich-text toolbar.<br>Right-click anywhere for more options.' },
+        { id: uid(), type:'note', html:'👋 <b>Welcome to TabNest!</b><br><br>Drag tabs from the left sidebar into any group.<br>Select text for the rich-text toolbar.<br>Right-click anywhere for more options.' },
         { id: uid(), type:'todo', text:'Try dragging a tab here', done:false },
         { id: uid(), type:'todo', text:'Right-click a group for context menu', done:false },
         { id: uid(), type:'todo', text:'Press Cmd/Ctrl + K to search', done:false }
@@ -1303,6 +1303,7 @@ async function refreshOpenTabs() {
 
 function renderOpenTabs() {
   const $el = document.getElementById('open-tabs');
+  const scrollPos = $el.scrollTop;
   $el.innerHTML = '';
 
   // Clean stale selections
@@ -1425,6 +1426,7 @@ function renderOpenTabs() {
     $el.appendChild(el);
   });
   applyFilter();
+  $el.scrollTop = scrollPos;
 }
 function updateSelectedBadge() {
   const b = document.getElementById('selected-badge');
@@ -3157,7 +3159,7 @@ function exportJSON() {
   const data = State.get();
   const counts = countState(data);
   const payload = {
-    app: 'tabextend',
+    app: 'tabnest',
     schema: CURRENT_SCHEMA,
     exportedAt: new Date().toISOString(),
     counts,
@@ -3168,7 +3170,7 @@ function exportJSON() {
   const a = document.createElement('a');
   const wsTag = counts.workspaces ? `-${counts.workspaces}ws` : '';
   a.href = url;
-  a.download = `tabextend${wsTag}-${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `tabnest${wsTag}-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
   toast(`Exported · ${pluralize(counts.workspaces, 'workspace')} · ${pluralize(counts.items, 'item')}`);
@@ -3188,7 +3190,7 @@ function importJSON(file) {
       return;
     }
     let data, schema, exportedAt;
-    if (parsed && parsed.app === 'tabextend' && parsed.data && typeof parsed.data === 'object') {
+    if (parsed && (parsed.app === 'tabnest' || parsed.app === 'tabextend') && parsed.data && typeof parsed.data === 'object') {
       data = parsed.data;
       schema = parsed.schema;
       exportedAt = parsed.exportedAt;
@@ -3325,6 +3327,124 @@ function bindImportUI() {
     if (mode === 'merge') applyImportMerge(data);
     else applyImportReplace(data);
   };
+}
+
+// ════════════════════════════════════════════════════════════════
+// PASTE LINKS IMPORT
+// ════════════════════════════════════════════════════════════════
+function parsePastedLinks(text) {
+  return [...new Set(
+    text.split('\n').map(l => l.trim()).filter(l => {
+      try { const u = new URL(l); return ['http:', 'https:'].includes(u.protocol); }
+      catch { return false; }
+    })
+  )];
+}
+
+function openPasteOverlay() {
+  const overlay = document.getElementById('paste-overlay');
+  const area = document.getElementById('paste-area');
+  const dest = document.getElementById('paste-dest');
+  const btn = document.getElementById('paste-go');
+  const preview = document.getElementById('paste-preview');
+  const nameInput = document.getElementById('paste-group-name');
+
+  area.value = '';
+  btn.disabled = true;
+  btn.textContent = 'Import 0 links';
+  preview.textContent = '';
+  nameInput.classList.add('hidden');
+  nameInput.value = '';
+
+  dest.innerHTML = '';
+  const cat = activeCat();
+  if (cat) {
+    cat.groups.forEach(g => {
+      const opt = document.createElement('option');
+      opt.value = g.id;
+      opt.textContent = (g.symbol ? g.symbol + ' ' : '') + g.name;
+      dest.appendChild(opt);
+    });
+  }
+  const newOpt = document.createElement('option');
+  newOpt.value = '__new__';
+  newOpt.textContent = '+ New group';
+  dest.appendChild(newOpt);
+
+  overlay.classList.remove('hidden');
+  setTimeout(() => area.focus(), 50);
+}
+
+function closePasteOverlay() {
+  document.getElementById('paste-overlay').classList.add('hidden');
+}
+
+function applyPasteImport() {
+  const urls = parsePastedLinks(document.getElementById('paste-area').value);
+  if (!urls.length) return;
+  const destId = document.getElementById('paste-dest').value;
+  const cat = activeCat();
+  if (!cat) return;
+
+  State.snapshot('Paste links');
+
+  let targetGroup;
+  if (destId === '__new__') {
+    const name = document.getElementById('paste-group-name').value.trim() || 'Pasted links';
+    targetGroup = { id: uid(), name, symbol: '📋', color: '#6366f1', collapsed: false, items: [] };
+    cat.groups.push(targetGroup);
+  } else {
+    targetGroup = cat.groups.find(g => g.id === destId);
+    if (!targetGroup) return;
+  }
+
+  for (const url of urls) {
+    let host = '';
+    try { host = new URL(url).hostname; } catch {}
+    targetGroup.items.push({
+      id: uid(), type: 'tab', url,
+      title: host || url, fav: favUrl(url)
+    });
+  }
+
+  State.persist();
+  renderBoard();
+  closePasteOverlay();
+  toast(`Imported ${urls.length} link${urls.length === 1 ? '' : 's'}`, { undo: true });
+}
+
+function bindPasteImportUI() {
+  const overlay = document.getElementById('paste-overlay');
+  if (!overlay) return;
+  const area = document.getElementById('paste-area');
+  const btn = document.getElementById('paste-go');
+  const dest = document.getElementById('paste-dest');
+  const nameInput = document.getElementById('paste-group-name');
+
+  document.getElementById('paste-x').onclick = closePasteOverlay;
+  document.getElementById('paste-cancel').onclick = closePasteOverlay;
+  overlay.addEventListener('click', e => { if (e.target === overlay) closePasteOverlay(); });
+  overlay.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closePasteOverlay(); e.stopPropagation(); }
+    trapTabKey(e, overlay);
+  });
+
+  area.addEventListener('input', () => {
+    const urls = parsePastedLinks(area.value);
+    const n = urls.length;
+    btn.disabled = n === 0;
+    btn.textContent = `Import ${n} link${n === 1 ? '' : 's'}`;
+    document.getElementById('paste-preview').textContent = n ? `${n} valid URL${n === 1 ? '' : 's'} detected` : '';
+  });
+
+  dest.addEventListener('change', () => {
+    nameInput.classList.toggle('hidden', dest.value !== '__new__');
+    if (dest.value === '__new__') nameInput.focus();
+  });
+
+  btn.onclick = applyPasteImport;
+
+  document.getElementById('paste-import-btn').onclick = openPasteOverlay;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -4741,9 +4861,9 @@ function renderPomo() {
 
   // Title indicator
   if (pomoState.running) {
-    document.title = `${m}:${String(s).padStart(2,'0')} · TabExtend`;
+    document.title = `${m}:${String(s).padStart(2,'0')} · TabNest`;
   } else {
-    document.title = 'New tabExtend';
+    document.title = 'New Tab';
   }
 
   renderPomoTasks();
@@ -4784,7 +4904,7 @@ function tickPomo() {
   if (!_pomoTimeEl) _pomoTimeEl = document.getElementById('pomo-time');
   if (_pomoTimeEl) _pomoTimeEl.textContent = timeText;
   // document.title writes are surprisingly expensive — only change when needed.
-  const nextTitle = pomoState.running ? `${timeText} · TabExtend` : 'New tabExtend';
+  const nextTitle = pomoState.running ? `${timeText} · TabNest` : 'New Tab';
   if (nextTitle !== _pomoLastTitle) { document.title = nextTitle; _pomoLastTitle = nextTitle; }
 }
 function startPomoTimer() {
@@ -5195,7 +5315,7 @@ function exportFinCSV() {
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `tabextend-finance-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  a.href = url; a.download = `tabnest-finance-${new Date().toISOString().slice(0,10)}.csv`; a.click();
   URL.revokeObjectURL(url);
   toast('Exported CSV');
 }
@@ -6058,7 +6178,7 @@ function bindWorkout() {
 const TOUR_STEPS = [
   {
     center: true,
-    title: '👋 Welcome to TabExtend',
+    title: '👋 Welcome to TabNest',
     body: 'A calmer place for your tabs. In about 30 seconds you\'ll know how to save, organise, and find anything again. Use ← / → to step through, or Esc to skip.'
   },
   {
@@ -6397,6 +6517,7 @@ function bindStatic() {
   bindRtToolbar();
   bindReminderUI();
   bindImportUI();
+  bindPasteImportUI();
   bindQuotaOverlay();
   bindCheatsheetOverlay();
   bindBoardArrowNav();

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   TabExtend — newtab.css
+   TabNest — newtab.css
    ═══════════════════════════════════════════════════════════════ */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1277,7 +1277,7 @@ body[data-show-urls="off"] .item-url { display: none; }
 }
 
 /* ═══ MODAL ═══ */
-#modal-overlay, #reminder-overlay, #intent-overlay, #import-overlay {
+#modal-overlay, #reminder-overlay, #intent-overlay, #import-overlay, #paste-overlay {
   position: fixed; inset: 0;
   background: rgba(0,0,0,0.5);
   backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur));
@@ -1288,7 +1288,7 @@ body[data-show-urls="off"] .item-url { display: none; }
   transition: opacity var(--dur-base) var(--trans), visibility 0s linear 0s;
   animation: fadeIn 0.18s var(--trans);
 }
-[data-theme="light"] #modal-overlay, [data-theme="light"] #reminder-overlay, [data-theme="light"] #intent-overlay, [data-theme="light"] #import-overlay,
+[data-theme="light"] #modal-overlay, [data-theme="light"] #reminder-overlay, [data-theme="light"] #intent-overlay, [data-theme="light"] #import-overlay, [data-theme="light"] #paste-overlay,
 [data-theme="solarized-light"] #modal-overlay, [data-theme="sepia"] #modal-overlay {
   background: rgba(20,20,30,0.3);
 }
@@ -1296,7 +1296,7 @@ body[data-show-urls="off"] .item-url { display: none; }
    utility (defined later in this stylesheet) would otherwise cut transitions, so we
    re-assert `display: flex` with `!important` here. Higher specificity (id + class)
    plus !important wins against the trailing utility rule. */
-#modal-overlay.hidden, #reminder-overlay.hidden, #intent-overlay.hidden, #import-overlay.hidden {
+#modal-overlay.hidden, #reminder-overlay.hidden, #intent-overlay.hidden, #import-overlay.hidden, #paste-overlay.hidden {
   display: flex !important;
   opacity: 0;
   visibility: hidden;
@@ -1346,6 +1346,30 @@ body[data-show-urls="off"] .item-url { display: none; }
   .import-mode-opt { transition: none; }
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ─── Paste links overlay ─── */
+.paste-panel { width: 480px; }
+#paste-area {
+  width: 100%; resize: vertical;
+  background: var(--bg); color: var(--text); border: 1px solid var(--border2);
+  border-radius: 8px; padding: 10px 12px;
+  font: 13px/1.5 var(--font-mono, 'JetBrains Mono', monospace);
+}
+#paste-area:focus { outline: none; border-color: var(--accent); }
+#paste-area::placeholder { color: var(--text3); }
+.paste-actions {
+  display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap;
+}
+.paste-opt { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text2); }
+#paste-dest {
+  background: var(--bg); color: var(--text); border: 1px solid var(--border2);
+  border-radius: 6px; padding: 4px 8px; font: 13px var(--font);
+}
+#paste-group-name {
+  background: var(--bg); color: var(--text); border: 1px solid var(--border2);
+  border-radius: 6px; padding: 4px 8px; font: 13px var(--font); width: 160px;
+}
+#paste-group-name:focus { outline: none; border-color: var(--accent); }
 
 #modal, .rm-panel {
   background: var(--panel);

@@ -1,6 +1,6 @@
-# TabExtend
+# TabNest
 
-A visual tab manager + productivity workspace for Edge / Chrome. Inspired by [tabExtend](https://tabextend.com), [LumiList](https://lumilist.app), [Spendy](https://github.com/topics/spending-tracker), and the various productivity tools we use every day.
+A visual tab manager + productivity workspace for Edge / Chrome. Organize tabs, notes, and to-dos in one place — with built-in tools for tracking habits, finances, reading, and more.
 
 ## What it does
 
@@ -17,12 +17,12 @@ Replaces your new tab page with a workspace where you can:
 2. Open `edge://extensions/` (or `chrome://extensions/`)
 3. Toggle **Developer mode** in the top right
 4. Click **Load unpacked** and select this folder
-5. Open a new tab — TabExtend takes over
+5. Open a new tab — TabNest takes over
 
 ## File structure
 
 ```
-tabextend/
+tabnest/
 ├── manifest.json        # MV3 manifest, permissions, commands
 ├── background.js        # Service worker: context menus, alarms, hotkeys
 ├── newtab.html          # Main workspace view
@@ -112,7 +112,7 @@ Each tool is opened from the Tools Hub (⚡ icon in topbar). All tool state is p
 |---|---|
 | `tabs` | Read/create/close tabs for the saved-tabs feature |
 | `storage` | Persist workspace data |
-| `contextMenus` | Right-click "Save page to TabExtend" |
+| `contextMenus` | Right-click "Save page to TabNest" |
 | `bookmarks` | "Import bookmarks" feature |
 | `alarms` | Reminders + subscription renewal alerts |
 | `notifications` | Show reminder/alarm toasts in OS |

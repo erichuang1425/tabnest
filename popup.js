@@ -1,4 +1,4 @@
-/* TabExtend popup.js */
+/* TabNest popup.js */
 const $ = id => document.getElementById(id);
 const esc = s => !s ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const favUrl = u => { try { return `https://www.google.com/s2/favicons?domain=${new URL(u).hostname}&sz=32`; } catch { return ''; } };
