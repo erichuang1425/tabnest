@@ -2501,7 +2501,10 @@ function syncItemSelMode() {
 function toggleItemSelect(itemId) {
   if (selectedItemIds.has(itemId)) selectedItemIds.delete(itemId);
   else selectedItemIds.add(itemId);
-  lastSelectedItemId = itemId;
+  // Keep the shift-range anchor on the clicked item, but drop it when the
+  // selection is now empty — otherwise a later shift-click (while explicit
+  // mode keeps the mode active) would span a range from a stale anchor.
+  lastSelectedItemId = selectedItemIds.size ? itemId : null;
   syncItemSelMode();
   renderBoard();
   renderItemSelToolbar();
@@ -4719,13 +4722,12 @@ function cycleViewMode() {
 }
 
 function toggleSelectMode() {
-  explicitSelMode = !explicitSelMode;
-  if (!explicitSelMode) {
-    // Turning the mode off also drops any pending selection + toolbar.
-    selectedItemIds.clear();
-    lastSelectedItemId = null;
-    renderItemSelToolbar();
-  }
+  // The button is "active" whenever the mode is on — whether it was entered
+  // explicitly or implicitly by selecting items via checkboxes. A click on an
+  // active button must turn everything off in one go, so treat the current
+  // itemSelMode (not just explicitSelMode) as the off transition.
+  if (itemSelMode) { clearItemSelection(); return; }
+  explicitSelMode = true;
   syncItemSelMode();
   renderBoard();
 }
