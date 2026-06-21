@@ -735,6 +735,8 @@ body[data-anim="off"] .cat-tabs-wrap::after {
   overflow-x: auto; overflow-y: hidden;
   align-items: flex-start;
   scroll-behavior: smooth;
+  /* Recessed workspace: content sits below the floating glass topbar. */
+  box-shadow: inset 0 7px 14px -14px rgba(0,0,0,0.55);
 }
 #board::-webkit-scrollbar { height: 7px; }
 #board::-webkit-scrollbar-track { background: transparent; }
@@ -825,6 +827,10 @@ body[data-anim="off"] .cat-tabs-wrap::after {
   background: linear-gradient(to bottom,
     color-mix(in srgb, var(--gcol-tint, transparent) 10%, transparent),
     transparent);
+  /* Header layers above the scrolling cards, echoing the topbar treatment. */
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  box-shadow: 0 4px 9px -10px rgba(0,0,0,0.45);
+  position: relative; z-index: 1;
 }
 .gcol-hd.grabbing { cursor: grabbing; }
 
