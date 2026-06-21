@@ -355,11 +355,22 @@ textarea:focus-visible {
   user-select: none;
 }
 .ws-chip:hover { background: var(--bg4); border-color: var(--border2); transform: translateY(-1px); }
+/* Signature through-line: active workspace chip carries the brand gradient
+   (a left accent bar), echoing the active category tab and primary buttons. */
 .ws-chip.active {
-  background: color-mix(in srgb, var(--accent-bg) 14%, var(--bg4));
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg4));
+  border-color: transparent;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
 }
+.ws-chip.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 6px; bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--brand-grad);
+}
+#sidebar.collapsed .ws-chip.active::before { top: 4px; bottom: 4px; }
 .ws-chip.live .ws-chip-live-dot {
   position: absolute;
   top: 3px; right: 5px;

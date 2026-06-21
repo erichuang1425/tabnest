@@ -123,7 +123,7 @@ No host permissions — the extension does not read web page content.
 
 | Shortcut | Action |
 |---|---|
-| `Cmd/Ctrl + K` | Search across all saved items |
+| `Cmd/Ctrl + K` | Search across all saved items (supports `color:red`, `color:red,blue` to filter by item color) |
 | `Cmd/Ctrl + Shift + S` | Save current tab to Inbox |
 | `Cmd/Ctrl + Shift + E` | Open extension popup |
 | `Cmd/Ctrl + Z / Shift+Z` | Undo / Redo |

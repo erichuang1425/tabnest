@@ -83,8 +83,8 @@ A deliberately distinct identity that is **neither** TabExtend's pastel-light fa
   thin gradient **underline** (Linear/Vercel-style), a clear, deliberate divergence from
   TabExtend's solid blue pill. This is structural CSS, so it holds across every theme.
 - **Cohesive accent gradient** (`--brand-grad`, derived from each theme's own accents) on the
-  active tab, primary buttons, and active workspace chip — a recognizable through-line that is
-  ours, not borrowed.
+  active tab, primary buttons, and active workspace chip (gradient left accent bar) — a
+  recognizable through-line that is ours, not borrowed.
 - **Sidebar = workspaces + live open-tabs list**, not a favicon bubble rail. Already different
   from TabExtend by construction; we lean into it.
 - **Themes stay first-class.** Aurora is the new default, but the existing 12 themes remain, so
@@ -93,7 +93,10 @@ A deliberately distinct identity that is **neither** TabExtend's pastel-light fa
 
 ### Borrowed *ideas* (functional, safe) worth pursuing next
 - From Refern: the **Canvas** view (we already have one) and a future **relationship/graph**
-  view; optional **link previews / thumbnails** on saved tabs; tag-based + color search.
+  view; ~~tag-based + **color search**~~ → **color search shipped** (`color:red` operator
+  in the search bar). Note: **link previews / thumbnails** would require reading page content,
+  which conflicts with our no-host-permissions / private-by-default positioning — deferred
+  unless we can derive previews without host access.
 - From TabExtend: mixing **tabs + notes + todos** in one column (we already do this);
   per-window workspaces (we already do this).
 
@@ -132,3 +135,6 @@ differentiator we can market honestly.
 - **2026-06-21** — Initial brief. Introduced **Aurora** signature theme (new default),
   **underline** category-tab treatment (diverges from TabExtend pills), and a cohesive
   `--brand-grad` through-line. Documented legal posture and a free-now → profitable-later plan.
+- **2026-06-21** — Completed the `--brand-grad` through-line onto the **active workspace chip**
+  (gradient left accent bar). Shipped **color search** (`color:red`, `color:red,blue`) in the
+  board search bar — the first of the §3 "borrowed ideas" roadmap items.

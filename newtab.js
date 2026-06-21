@@ -2930,23 +2930,44 @@ function bindRtToolbar() {
 // ════════════════════════════════════════════════════════════════
 // SEARCH
 // ════════════════════════════════════════════════════════════════
+const SEARCH_COLORS = ['red','orange','yellow','green','blue'];
 function applySearchFilter() {
-  const q = document.getElementById('search-input').value.toLowerCase().trim();
+  const raw = document.getElementById('search-input').value.toLowerCase().trim();
   // Support exact match with quotes
-  const isExact = /^".+"$/.test(q);
-  const needle = isExact ? q.slice(1, -1) : q;
+  const isExact = /^".+"$/.test(raw);
+  // Pull out color:NAME filters (e.g. "color:red", "color:red,blue") — the plan's
+  // color search. Skipped inside quoted exact searches so literals match verbatim.
+  const colorFilters = [];
+  let q = raw;
+  if (!isExact && raw) {
+    const kept = [];
+    raw.split(/\s+/).forEach(w => {
+      const m = /^colou?r:(.+)$/.exec(w);
+      if (m) m[1].split(',').forEach(c => { if (SEARCH_COLORS.includes(c)) colorFilters.push(c); });
+      else kept.push(w);
+    });
+    q = kept.join(' ');
+  }
+  const hasColor = colorFilters.length > 0;
+  const hasText = isExact || !!q;
+  const needle = isExact ? raw.slice(1, -1) : q;
   const tokens = !isExact && q ? needle.split(/\s+/) : null;
   getItemNodes().forEach(el => {
-    if (!q) { el.classList.remove('hidden'); return; }
-    const text = el.textContent.toLowerCase();
-    const match = isExact ? text.includes(needle) : tokens.every(w => text.includes(w));
+    if (!raw) { el.classList.remove('hidden'); return; }
+    let match = true;
+    if (hasColor) match = colorFilters.includes(el.dataset.color);
+    if (match && hasText) {
+      const text = el.textContent.toLowerCase();
+      match = isExact ? text.includes(needle) : tokens.every(w => text.includes(w));
+    }
     el.classList.toggle('hidden', !match);
   });
   document.querySelectorAll('.gcol').forEach(col => {
     const any = col.querySelectorAll('.item:not(.hidden)').length > 0;
-    col.style.display = (!q || any) ? '' : 'none';
+    col.style.display = (!raw || any) ? '' : 'none';
   });
-  renderArchiveSearchResults(q, needle, isExact);
+  // Archive results match on text only; a color-only query has no text to match.
+  renderArchiveSearchResults(hasText ? q : '', needle, isExact);
 }
 // Build a normalized search blob for an archive entry (group or item).
 // Memoized in a WeakMap so we don't strip HTML on every keystroke.
