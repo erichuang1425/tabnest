@@ -2644,37 +2644,69 @@ function runBatchAction(act) {
 function openMoveTargetPicker(infos) {
   if (!infos || !infos.length) return;
   const ids = infos.map(i => i.item.id);
+  const idSet = new Set(ids);
   const sourceGroups = new Set(infos.map(i => i.group));
+  const sourceParents = new Set(infos.map(i => i.parent)); // immediate lists items already live in
   const noun = ids.length === 1 ? 'item' : 'items';
   const items = [{ label: `MOVE ${ids.length} ${noun.toUpperCase()} TO…` }];
+
+  // Move the collected items into `destList` (a group's or stack's item list),
+  // preserving their relative document order.
+  const moveInto = destList => {
+    State.snapshot(`Move ${ids.length} ${noun}`);
+    // Walk in doc order to preserve relative order; splice in reverse so
+    // indices stay stable.
+    const orderedIds = [];
+    // Stop descending into a selected stack: its children travel inside it, so
+    // recording them separately would splice them out and flatten the subtree.
+    const walk = list => { for (const it of list) { if (idSet.has(it.id)) { orderedIds.push(it.id); continue; } if (it.type === 'stack' && it.items) walk(it.items); } };
+    State.get().workspaces.forEach(w => w.categories.forEach(c => c.groups.forEach(gr => walk(gr.items))));
+    const moved = [];
+    for (let i = orderedIds.length - 1; i >= 0; i--) {
+      const info = findItem(orderedIds[i]);
+      if (info) moved.unshift(...info.parent.splice(info.index, 1));
+    }
+    destList.push(...moved);
+    State.persist();
+    const focusId = moved[0]?.id;
+    clearItemSelection(); // also re-renders the board
+    if (focusId) requestAnimationFrame(() => focusItem(focusId));
+    toast(`Moved ${moved.length} ${moved.length === 1 ? 'item' : 'items'}`, { undo: true });
+  };
+
   State.get().workspaces.forEach(ws => {
     ws.categories.forEach(cat => {
       cat.groups.forEach(g => {
-        if (sourceGroups.has(g)) return; // hide source as a destination
-        items.push({
-          text: `${ws.symbol || '🏠'} ${ws.name} / ${cat.name} / ${g.name}`,
-          icon: cmIcons.folder || cmIcons.open,
-          action: () => {
-            State.snapshot(`Move ${ids.length} ${noun}`);
-            // Walk in doc order to preserve relative order; splice in reverse
-            // so indices stay stable.
-            const idSet = new Set(ids);
-            const orderedIds = [];
-            const walk = list => { for (const it of list) { if (idSet.has(it.id)) orderedIds.push(it.id); if (it.type === 'stack' && it.items) walk(it.items); } };
-            State.get().workspaces.forEach(w => w.categories.forEach(c => c.groups.forEach(gr => walk(gr.items))));
-            const moved = [];
-            for (let i = orderedIds.length - 1; i >= 0; i--) {
-              const info = findItem(orderedIds[i]);
-              if (info) moved.unshift(...info.parent.splice(info.index, 1));
+        const prefix = `${ws.symbol || '🏠'} ${ws.name} / ${cat.name} / ${g.name}`;
+        if (!sourceGroups.has(g)) { // hide source group's own top level as a no-op
+          items.push({
+            text: prefix,
+            icon: cmIcons.folder || cmIcons.open,
+            action: () => moveInto(g.items)
+          });
+        }
+        // Offer every stack inside the group as a destination too, so the
+        // keyboard picker can drop into a specific stack (not just a group).
+        // Skip any stack being moved, and don't descend into it — that would
+        // let an item land inside itself or its own descendant.
+        const addStacks = (list, path) => {
+          for (const it of list) {
+            if (it.type !== 'stack' || !it.items) continue;
+            if (idSet.has(it.id)) continue; // can't move a stack into itself/descendants (skip subtree)
+            const stackPath = `${path} ▸ ${it.symbol || '📚'} ${it.name}`;
+            // Skip a stack an item already lives directly in — moving there is a
+            // no-op reorder, not a real move. Still descend for nested stacks.
+            if (!sourceParents.has(it.items)) {
+              items.push({
+                text: stackPath,
+                icon: cmIcons.stack,
+                action: () => moveInto(it.items)
+              });
             }
-            g.items.push(...moved);
-            State.persist();
-            const focusId = moved[0]?.id;
-            clearItemSelection(); // also re-renders the board
-            if (focusId) requestAnimationFrame(() => focusItem(focusId));
-            toast(`Moved ${moved.length} ${moved.length === 1 ? 'item' : 'items'}`, { undo: true });
+            addStacks(it.items, stackPath);
           }
-        });
+        };
+        addStacks(g.items, prefix);
       });
     });
   });

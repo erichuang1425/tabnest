@@ -128,7 +128,7 @@ No host permissions — the extension does not read web page content.
 | `Cmd/Ctrl + Shift + E` | Open extension popup |
 | `Cmd/Ctrl + Z / Shift+Z` | Undo / Redo |
 | `S` | Focus tab filter in sidebar |
-| `M` | Move focused item (or current selection) to another group |
+| `M` | Move focused item (or current selection) to another group or stack |
 | `?` | Show keyboard cheatsheet |
 | `Esc` | Close overlays, clear selections |
 | `/todo` `/done` | Convert note → todo, mark done |
@@ -160,7 +160,6 @@ Dark, Light, Dracula, Nord, Rosé Pine, Tokyo Night, Solarized Dark/Light, Gruvb
 
 ## Known limitations / TODO
 
-- The keyboard move picker (`M`) lists groups as destinations only — dropping into a specific stack still requires a mouse drag.
 - The MV3 service worker may be idle-evicted in low-memory states, so reminders and subscription alerts can fire late (Chromium-side limitation).
 
 ## Development notes for Claude Code
