@@ -146,4 +146,5 @@ differentiator we can market honestly.
   `is:done` / `is:open` (todo completion state). Operators compose with each other and with
   free/quoted text, and stay privacy-safe (derived purely from local item metadata). Ancestor
   stacks are kept visible when a nested item matches, so operator searches surface items inside
-  stacks too.
+  stacks too. Quoted phrases are tokenized before operators so they compose (`type:todo
+  "due today"`), and list-view stack headers (`.lv-stack`) are filtered too, not just board/canvas.

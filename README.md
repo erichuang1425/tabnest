@@ -123,7 +123,7 @@ No host permissions — the extension does not read web page content.
 
 | Shortcut | Action |
 |---|---|
-| `Cmd/Ctrl + K` | Search across all saved items. Supports operators: `color:red` / `color:red,blue` (by color), `type:tab\|note\|todo\|stack` (by kind), `is:done` / `is:open` (todo state). Combine freely with text and each other, e.g. `type:todo is:open urgent`. |
+| `Cmd/Ctrl + K` | Search across all saved items. Supports operators: `color:red` / `color:red,blue` (by color), `type:tab\|note\|todo\|stack` (by kind), `is:done` / `is:open` (todo state). Combine freely with words and `"quoted phrases"`, e.g. `type:todo is:open "due today"`. |
 | `Cmd/Ctrl + Shift + S` | Save current tab to Inbox |
 | `Cmd/Ctrl + Shift + E` | Open extension popup |
 | `Cmd/Ctrl + Z / Shift+Z` | Undo / Redo |
