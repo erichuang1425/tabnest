@@ -2989,14 +2989,21 @@ function applySearchFilter() {
   const hasType = typeFilters.length > 0;
   const hasState = stateFilters.length > 0;
   const hasText = textNeedles.length > 0;
-  // Board/canvas stacks render their name in a .stack-name <input>, whose value is NOT
-  // part of textContent — fold the stack's own name in so text / type:stack search can
-  // match it (e.g. an empty stack named "Alpha"). List-view headers render the name as
-  // text already, so they're unaffected.
+  // Text to match an element against. For a board/canvas stack, match ONLY its own
+  // header/name — not descendant cards, which surface on their own as .item matches and
+  // reveal their parent. This keeps results consistent with list view (which evaluates
+  // just .lv-stack-hd) and avoids type:stack false positives. The name lives in a
+  // .stack-name <input> whose value isn't in textContent, so fold it in explicitly.
   const matchText = el => {
-    let t = el.textContent;
-    const nameInput = el.querySelector(':scope > .stack-hd > .stack-name');
-    if (nameInput) t += ' ' + nameInput.value;
+    const hd = el.querySelector(':scope > .stack-hd');
+    let t;
+    if (hd) {
+      t = hd.textContent;
+      const nameInput = hd.querySelector(':scope > .stack-name');
+      if (nameInput) t += ' ' + nameInput.value;
+    } else {
+      t = el.textContent;
+    }
     t = t.toLowerCase();
     return textNeedles.every(n => t.includes(n));
   };
