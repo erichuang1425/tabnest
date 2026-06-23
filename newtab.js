@@ -2969,41 +2969,47 @@ function applySearchFilter() {
   //   domain:host[,host] — filter tabs by hostname substring (alias site:)
   //   url:frag[,frag]    — filter tabs by full-URL substring
   //   in:name[,name]     — filter by the name of a containing group/stack (scope)
+  //   -<term>            — negate any operator or word: EXCLUDE items it matches
+  //                        (e.g. -type:todo, -domain:github.com, -"in progress")
   // Everything else (bare words and quoted phrases) becomes a text needle that must
   // appear as a substring; a quoted phrase is one needle so its spaces match verbatim.
-  const colorFilters = [];
-  const typeFilters = [];
-  const stateFilters = [];
-  const domainFilters = [];
-  const urlFilters = [];
-  const inFilters = [];
-  const textNeedles = [];
-  (raw.match(/"[^"]*"|\S+/g) || []).forEach(tok => {
+  // Each token routes into a positive (must-match, AND across families) or a negative
+  // (must-NOT-match, hide if ANY negative family matches) bucket with identical shape.
+  const pos = { color: [], type: [], state: [], domain: [], url: [], in: [], text: [] };
+  const neg = { color: [], type: [], state: [], domain: [], url: [], in: [], text: [] };
+  (raw.match(/-?"[^"]*"|\S+/g) || []).forEach(tok => {
+    // A leading '-' negates the rest of the token (operator or word). A bare "-" with
+    // nothing after it is treated as literal text.
+    let bucket = pos;
+    if (tok[0] === '-' && tok.length > 1) { bucket = neg; tok = tok.slice(1); }
     if (tok.length > 1 && tok[0] === '"' && tok[tok.length - 1] === '"') {
       const phrase = tok.slice(1, -1).trim();
-      if (phrase) textNeedles.push(phrase);
+      if (phrase) bucket.text.push(phrase);
       return;
     }
     let m;
     if ((m = /^colou?r:(.+)$/.exec(tok))) {
-      m[1].split(',').forEach(c => { if (SEARCH_COLORS.includes(c)) colorFilters.push(c); });
+      m[1].split(',').forEach(c => { if (SEARCH_COLORS.includes(c)) bucket.color.push(c); });
     } else if ((m = /^type:(.+)$/.exec(tok))) {
-      m[1].split(',').forEach(t => { const ct = SEARCH_TYPES[t]; if (ct && !typeFilters.includes(ct)) typeFilters.push(ct); });
+      m[1].split(',').forEach(t => { const ct = SEARCH_TYPES[t]; if (ct && !bucket.type.includes(ct)) bucket.type.push(ct); });
     } else if ((m = /^is:(.+)$/.exec(tok))) {
       m[1].split(',').forEach(s => {
-        if (s === 'done' || s === 'checked' || s === 'complete') stateFilters.push('done');
-        else if (s === 'open' || s === 'undone' || s === 'todo' || s === 'incomplete') stateFilters.push('open');
+        if (s === 'done' || s === 'checked' || s === 'complete') bucket.state.push('done');
+        else if (s === 'open' || s === 'undone' || s === 'todo' || s === 'incomplete') bucket.state.push('open');
       });
     } else if ((m = /^(?:domain|site|host):(.+)$/.exec(tok))) {
-      m[1].split(',').forEach(d => { const v = d.trim(); if (v) domainFilters.push(v); });
+      m[1].split(',').forEach(d => { const v = d.trim(); if (v) bucket.domain.push(v); });
     } else if ((m = /^url:(.+)$/.exec(tok))) {
-      m[1].split(',').forEach(u => { const v = u.trim(); if (v) urlFilters.push(v); });
+      m[1].split(',').forEach(u => { const v = u.trim(); if (v) bucket.url.push(v); });
     } else if ((m = /^in:(.+)$/.exec(tok))) {
-      m[1].split(',').forEach(g => { const v = g.trim(); if (v) inFilters.push(v); });
+      m[1].split(',').forEach(g => { const v = g.trim(); if (v) bucket.in.push(v); });
     } else {
-      textNeedles.push(tok);
+      bucket.text.push(tok);
     }
   });
+  // Positive filters keep their original names so the match logic below is unchanged.
+  const colorFilters = pos.color, typeFilters = pos.type, stateFilters = pos.state,
+        domainFilters = pos.domain, urlFilters = pos.url, inFilters = pos.in, textNeedles = pos.text;
   const hasColor = colorFilters.length > 0;
   const hasType = typeFilters.length > 0;
   const hasState = stateFilters.length > 0;
@@ -3011,6 +3017,8 @@ function applySearchFilter() {
   const hasUrl = urlFilters.length > 0;
   const hasIn = inFilters.length > 0;
   const hasText = textNeedles.length > 0;
+  const hasNeg = neg.color.length || neg.type.length || neg.state.length ||
+                 neg.domain.length || neg.url.length || neg.in.length || neg.text.length;
   // Names of every group/stack a node is nested inside (board + list structures),
   // lowercased — powers the in:<name> scope operator. Walks ancestors only (a node isn't
   // "in" itself): board group names live in .gcol-name, board stack names in .stack-name,
@@ -3026,13 +3034,13 @@ function applySearchFilter() {
     add(node.closest('.lv-group')?.querySelector(':scope > .lv-group-hd > .lv-group-name')?.textContent);
     return names;
   };
-  const matchIn = node => { const ns = containerNamesOf(node); return inFilters.some(f => ns.some(n => n.includes(f))); };
-  // Text to match an element against. For a board/canvas stack, match ONLY its own
+  const matchIn = (filters, node) => { const ns = containerNamesOf(node); return filters.some(f => ns.some(n => n.includes(f))); };
+  // Lowercased text to match an element against. For a board/canvas stack, use ONLY its own
   // header/name — not descendant cards, which surface on their own as .item matches and
   // reveal their parent. This keeps results consistent with list view (which evaluates
   // just .lv-stack-hd) and avoids type:stack false positives. The name lives in a
   // .stack-name <input> whose value isn't in textContent, so fold it in explicitly.
-  const matchText = el => {
+  const elemText = el => {
     const hd = el.querySelector(':scope > .stack-hd');
     let t;
     if (hd) {
@@ -3042,9 +3050,31 @@ function applySearchFilter() {
     } else {
       t = el.textContent;
     }
-    t = t.toLowerCase();
-    return textNeedles.every(n => t.includes(n));
+    return t.toLowerCase();
   };
+  const matchText = el => { const t = elemText(el); return textNeedles.every(n => t.includes(n)); };
+  // Per-family matchers reused for negation. A todo's completion state, a tab's host/url,
+  // and a container scope are the only ones that can ever be true for the relevant kinds;
+  // for any other kind they're false, so e.g. -domain:x leaves notes/todos/stacks visible.
+  const mState = el => { const isTodo = el.classList.contains('todo'); const done = isTodo && el.classList.contains('done'); return f => isTodo && (f === 'done' ? done : !done); };
+  // An .item node is EXCLUDED if it matches any active negative family.
+  const excludedItem = el => (
+    (neg.color.length && neg.color.includes(el.dataset.color)) ||
+    (neg.type.length && neg.type.includes(itemNodeType(el))) ||
+    (neg.state.length && neg.state.some(mState(el))) ||
+    (neg.domain.length && !!el.dataset.host && neg.domain.some(d => el.dataset.host.includes(d))) ||
+    (neg.url.length && !!el.dataset.url && neg.url.some(u => el.dataset.url.includes(u))) ||
+    (neg.in.length && matchIn(neg.in, el)) ||
+    (neg.text.length && (t => neg.text.some(n => t.includes(n)))(elemText(el)))
+  );
+  // A list-view stack header is EXCLUDED similarly. A stack has no completion state, host,
+  // or URL, so -is:/-domain:/-url: never exclude it; type is hardcoded 'stack' as elsewhere.
+  const excludedStack = (st, hd) => (
+    (neg.color.length && neg.color.includes(st.dataset.color)) ||
+    (neg.type.length && neg.type.includes('stack')) ||
+    (neg.in.length && matchIn(neg.in, st)) ||
+    (neg.text.length && (t => neg.text.some(n => t.includes(n)))(elemText(hd)))
+  );
   getItemNodes().forEach(el => {
     if (!raw) { el.classList.remove('hidden'); return; }
     let match = true;
@@ -3059,8 +3089,9 @@ function applySearchFilter() {
     // domain:/url: only apply to tabs (the only items with a URL); other kinds can't satisfy them.
     if (match && hasDomain) { const h = el.dataset.host || ''; match = !!h && domainFilters.some(d => h.includes(d)); }
     if (match && hasUrl) { const u = el.dataset.url || ''; match = !!u && urlFilters.some(f => u.includes(f)); }
-    if (match && hasIn) match = matchIn(el);
+    if (match && hasIn) match = matchIn(inFilters, el);
     if (match && hasText) match = matchText(el);
+    if (match && hasNeg) match = !excludedItem(el);
     el.classList.toggle('hidden', !match);
   });
   // List view renders stacks as .lv-stack / .lv-stack-hd, not .item.stack, so the loop
@@ -3076,8 +3107,9 @@ function applySearchFilter() {
     if (match && hasType) match = typeFilters.includes('stack');
     if (match && hasState) match = false; // a stack has no completion state
     if (match && (hasDomain || hasUrl)) match = false; // a stack has no URL
-    if (match && hasIn) match = matchIn(st); // scope by the stack's ancestor groups/stacks
+    if (match && hasIn) match = matchIn(inFilters, st); // scope by the stack's ancestor groups/stacks
     if (match && hasText) match = matchText(hd);
+    if (match && hasNeg) match = !excludedStack(st, hd);
     hd.classList.toggle('hidden', !match);
   });
   // Reveal the ancestor stacks of every visible match so it's actually shown, even when
@@ -3110,8 +3142,13 @@ function applySearchFilter() {
   // faithfully to heterogeneous archive entries — especially whole-group entries — so when
   // any operator is active, suppress archive results rather than surface false positives
   // (e.g. type:todo urgent must not list archived notes/tabs/groups containing "urgent").
-  const hasOps = hasColor || hasType || hasState || hasDomain || hasUrl || hasIn;
-  renderArchiveSearchResults(hasText && !hasOps ? textNeedles : null);
+  // Negative structured operators count as ops too (can't be faithfully applied to
+  // heterogeneous archive entries); negative TEXT needles, though, just exclude matching
+  // entries, so they're passed through to filter the archive result list.
+  const hasNegOps = neg.color.length || neg.type.length || neg.state.length ||
+                    neg.domain.length || neg.url.length || neg.in.length;
+  const hasOps = hasColor || hasType || hasState || hasDomain || hasUrl || hasIn || hasNegOps;
+  renderArchiveSearchResults(hasText && !hasOps ? textNeedles : null, neg.text);
 }
 // Build a normalized search blob for an archive entry (group or item).
 // Memoized in a WeakMap so we don't strip HTML on every keystroke.
@@ -3139,15 +3176,16 @@ function archiveEntryText(entry) {
   _archiveBlobCache.set(entry, blob);
   return blob;
 }
-function renderArchiveSearchResults(textNeedles) {
+function renderArchiveSearchResults(textNeedles, negTextNeedles) {
   const $r = document.getElementById('search-archive-results');
   if (!$r) return;
   if (!textNeedles || !textNeedles.length) { $r.classList.add('hidden'); $r.innerHTML = ''; return; }
+  const negs = negTextNeedles || [];
   const arr = State.get().archive || [];
   const matches = [];
   arr.forEach((e, i) => {
     const text = archiveEntryText(e);
-    if (textNeedles.every(n => text.includes(n))) matches.push({ entry: e, idx: i });
+    if (textNeedles.every(n => text.includes(n)) && !negs.some(n => text.includes(n))) matches.push({ entry: e, idx: i });
   });
   if (!matches.length) { $r.classList.add('hidden'); $r.innerHTML = ''; return; }
   const cap = 20;

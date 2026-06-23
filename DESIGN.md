@@ -1,6 +1,6 @@
 # TabNest — Layout & Differentiation Brief
 
-Status: living document · Last updated: 2026-06-21 · Branch: `claude/extension-layout-research-6sonlp`
+Status: living document · Last updated: 2026-06-23 · Branch: `claude/extension-layout-research-6sonlp`
 
 This brief captures the design direction for TabNest's layout refresh and — importantly —
 how we take *inspiration* from **Refern** and **TabExtend** while staying clearly distinct,
@@ -97,8 +97,9 @@ A deliberately distinct identity that is **neither** TabExtend's pastel-light fa
   in the search bar). Refern's "14 search operators" trait → **search operators expanded**:
   `type:tab|note|todo|stack` (by kind), `is:done` / `is:open` (todo state),
   `domain:`/`site:` + `url:` (tab hostname / URL substring), and `in:` (scope by the name of
-  a containing group/stack) now join `color:` and combine freely (e.g.
-  `type:tab in:work domain:github.com "pull request"`). All derived from local
+  a containing group/stack) now join `color:`, and any operator or word can be **negated**
+  with a leading `-` to exclude matches. They combine freely (e.g.
+  `type:tab in:work domain:github.com "pull request" -is:done`). All derived from local
   item metadata / structure — no host access. Note: **link previews / thumbnails** would require reading
   page content, which conflicts with our no-host-permissions / private-by-default positioning
   — deferred unless we can derive previews without host access.
@@ -165,3 +166,12 @@ differentiator we can market honestly.
   comma-lists OR together, and composes with every existing operator and free/quoted text
   (e.g. `type:tab in:work domain:github.com`). Derived purely from local structure — no host
   access — and archive results are suppressed while it's active, like the other operators.
+- **2026-06-23** — Added **negation** to the search syntax (toward Refern's "14 operators"):
+  prefix any operator or word with `-` to **exclude** matches — `-type:todo`,
+  `-domain:github.com`, `-color:red`, `-in:work`, `-is:done`, or `-"quoted phrase"`. An item is
+  hidden if it matches *any* active negative term (OR across negatives), so negatives compose
+  with each other and with all positive operators/text (e.g. `type:tab -domain:github.com`).
+  A negative that can't apply to a kind leaves it visible (e.g. `-domain:` never hides a
+  note/todo). Negative structured operators suppress archive results like the positive ones;
+  negative *text* needles instead just filter out matching archive entries. Still no host
+  access — purely local metadata/structure.
