@@ -123,7 +123,7 @@ No host permissions — the extension does not read web page content.
 
 | Shortcut | Action |
 |---|---|
-| `Cmd/Ctrl + K` | Search across all saved items. Supports operators: `color:red` / `color:red,blue` (by color), `type:tab\|note\|todo\|stack` (by kind), `is:done` / `is:open` (todo state), `domain:github.com` / `site:` (tab hostname), `url:/issues` (tab URL substring). Comma-lists OR together (`domain:github.com,gitlab.com`). Combine freely with words and `"quoted phrases"`, e.g. `type:tab domain:github.com "pull request"`. |
+| `Cmd/Ctrl + K` | Search across all saved items. Supports operators: `color:red` / `color:red,blue` (by color), `type:tab\|note\|todo\|stack` (by kind), `is:done` / `is:open` (todo state), `domain:github.com` / `site:` (tab hostname), `url:/issues` (tab URL substring), `in:work` (containing group/stack name). Comma-lists OR together (`domain:github.com,gitlab.com`). Combine freely with words and `"quoted phrases"`, e.g. `type:tab in:work domain:github.com "pull request"`. |
 | `Cmd/Ctrl + Shift + S` | Save current tab to Inbox |
 | `Cmd/Ctrl + Shift + E` | Open extension popup |
 | `Cmd/Ctrl + Z / Shift+Z` | Undo / Redo |

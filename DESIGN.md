@@ -95,10 +95,11 @@ A deliberately distinct identity that is **neither** TabExtend's pastel-light fa
 - From Refern: the **Canvas** view (we already have one) and a future **relationship/graph**
   view; ~~tag-based + **color search**~~ → **color search shipped** (`color:red` operator
   in the search bar). Refern's "14 search operators" trait → **search operators expanded**:
-  `type:tab|note|todo|stack` (by kind), `is:done` / `is:open` (todo state), and
-  `domain:`/`site:` + `url:` (tab hostname / URL substring) now join `color:` and combine
-  freely (e.g. `type:tab domain:github.com "pull request"`). All derived from local
-  item metadata — no host access. Note: **link previews / thumbnails** would require reading
+  `type:tab|note|todo|stack` (by kind), `is:done` / `is:open` (todo state),
+  `domain:`/`site:` + `url:` (tab hostname / URL substring), and `in:` (scope by the name of
+  a containing group/stack) now join `color:` and combine freely (e.g.
+  `type:tab in:work domain:github.com "pull request"`). All derived from local
+  item metadata / structure — no host access. Note: **link previews / thumbnails** would require reading
   page content, which conflicts with our no-host-permissions / private-by-default positioning
   — deferred unless we can derive previews without host access.
 - From TabExtend: mixing **tabs + notes + todos** in one column (we already do this);
@@ -156,3 +157,11 @@ differentiator we can market honestly.
   item metadata (exposed as `data-host`/`data-url` on tab nodes) — still no host access. Only
   tab items carry a URL, so these operators exclude notes/todos/stacks, and archive results are
   suppressed when they're active (consistent with the other metadata operators).
+- **2026-06-23** — Added the **`in:`** scope operator (toward Refern's "14 operators"):
+  filter by the name of a containing group or stack (`in:work`, `in:research`), so you can
+  narrow results to a location instead of just matching text/metadata on the item itself.
+  Works in both board and list views (reads group/stack names from `.gcol-name`/`.stack-name`
+  and `.lv-group-name`/`.lv-stack-name`), walks ancestors only (a node isn't "in" itself),
+  comma-lists OR together, and composes with every existing operator and free/quoted text
+  (e.g. `type:tab in:work domain:github.com`). Derived purely from local structure — no host
+  access — and archive results are suppressed while it's active, like the other operators.

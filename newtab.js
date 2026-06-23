@@ -2968,6 +2968,7 @@ function applySearchFilter() {
   //   is:done | is:open  — filter todos by completion state
   //   domain:host[,host] — filter tabs by hostname substring (alias site:)
   //   url:frag[,frag]    — filter tabs by full-URL substring
+  //   in:name[,name]     — filter by the name of a containing group/stack (scope)
   // Everything else (bare words and quoted phrases) becomes a text needle that must
   // appear as a substring; a quoted phrase is one needle so its spaces match verbatim.
   const colorFilters = [];
@@ -2975,6 +2976,7 @@ function applySearchFilter() {
   const stateFilters = [];
   const domainFilters = [];
   const urlFilters = [];
+  const inFilters = [];
   const textNeedles = [];
   (raw.match(/"[^"]*"|\S+/g) || []).forEach(tok => {
     if (tok.length > 1 && tok[0] === '"' && tok[tok.length - 1] === '"') {
@@ -2996,6 +2998,8 @@ function applySearchFilter() {
       m[1].split(',').forEach(d => { const v = d.trim(); if (v) domainFilters.push(v); });
     } else if ((m = /^url:(.+)$/.exec(tok))) {
       m[1].split(',').forEach(u => { const v = u.trim(); if (v) urlFilters.push(v); });
+    } else if ((m = /^in:(.+)$/.exec(tok))) {
+      m[1].split(',').forEach(g => { const v = g.trim(); if (v) inFilters.push(v); });
     } else {
       textNeedles.push(tok);
     }
@@ -3005,7 +3009,24 @@ function applySearchFilter() {
   const hasState = stateFilters.length > 0;
   const hasDomain = domainFilters.length > 0;
   const hasUrl = urlFilters.length > 0;
+  const hasIn = inFilters.length > 0;
   const hasText = textNeedles.length > 0;
+  // Names of every group/stack a node is nested inside (board + list structures),
+  // lowercased — powers the in:<name> scope operator. Walks ancestors only (a node isn't
+  // "in" itself): board group names live in .gcol-name, board stack names in .stack-name,
+  // list group names in .lv-group-name, list stack names in .lv-stack-name.
+  const containerNamesOf = node => {
+    const names = [];
+    const add = v => { if (v) names.push(v.toLowerCase()); };
+    let bs = node.parentElement?.closest('.item.stack');
+    while (bs) { add(bs.querySelector(':scope > .stack-hd > .stack-name')?.value); bs = bs.parentElement?.closest('.item.stack'); }
+    add(node.closest('.gcol')?.querySelector(':scope > .gcol-hd .gcol-name')?.value);
+    let ls = node.parentElement?.closest('.lv-stack');
+    while (ls) { add(ls.querySelector(':scope > .lv-stack-hd > .lv-stack-name')?.textContent); ls = ls.parentElement?.closest('.lv-stack'); }
+    add(node.closest('.lv-group')?.querySelector(':scope > .lv-group-hd > .lv-group-name')?.textContent);
+    return names;
+  };
+  const matchIn = node => { const ns = containerNamesOf(node); return inFilters.some(f => ns.some(n => n.includes(f))); };
   // Text to match an element against. For a board/canvas stack, match ONLY its own
   // header/name — not descendant cards, which surface on their own as .item matches and
   // reveal their parent. This keeps results consistent with list view (which evaluates
@@ -3038,6 +3059,7 @@ function applySearchFilter() {
     // domain:/url: only apply to tabs (the only items with a URL); other kinds can't satisfy them.
     if (match && hasDomain) { const h = el.dataset.host || ''; match = !!h && domainFilters.some(d => h.includes(d)); }
     if (match && hasUrl) { const u = el.dataset.url || ''; match = !!u && urlFilters.some(f => u.includes(f)); }
+    if (match && hasIn) match = matchIn(el);
     if (match && hasText) match = matchText(el);
     el.classList.toggle('hidden', !match);
   });
@@ -3054,6 +3076,7 @@ function applySearchFilter() {
     if (match && hasType) match = typeFilters.includes('stack');
     if (match && hasState) match = false; // a stack has no completion state
     if (match && (hasDomain || hasUrl)) match = false; // a stack has no URL
+    if (match && hasIn) match = matchIn(st); // scope by the stack's ancestor groups/stacks
     if (match && hasText) match = matchText(hd);
     hd.classList.toggle('hidden', !match);
   });
@@ -3087,7 +3110,7 @@ function applySearchFilter() {
   // faithfully to heterogeneous archive entries — especially whole-group entries — so when
   // any operator is active, suppress archive results rather than surface false positives
   // (e.g. type:todo urgent must not list archived notes/tabs/groups containing "urgent").
-  const hasOps = hasColor || hasType || hasState || hasDomain || hasUrl;
+  const hasOps = hasColor || hasType || hasState || hasDomain || hasUrl || hasIn;
   renderArchiveSearchResults(hasText && !hasOps ? textNeedles : null);
 }
 // Build a normalized search blob for an archive entry (group or item).
