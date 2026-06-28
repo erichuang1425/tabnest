@@ -2105,9 +2105,9 @@ function buildItem(it, parentItems, group) {
   // operators. We store the raw `at` (not a precomputed bucket) so the bucket is
   // derived fresh at filter time — a reminder can cross the overdue/24h threshold
   // while the page stays open, and we must not match against a stale bucket.
-  // Only tab/note/todo carry a reminder badge (stacks don't), so we mirror that: a
-  // stack never advertises a reminder even if one is set, keeping search ⇄ UI consistent.
-  if (it.type !== 'stack' && it.reminder?.at) el.dataset.remAt = it.reminder.at;
+  // All kinds (tabs, notes, todos AND stacks) can carry a reminder and render a badge,
+  // so all of them advertise it to search, keeping search ⇄ UI consistent.
+  if (it.reminder?.at) el.dataset.remAt = it.reminder.at;
   attachItemSelection(el, it);
   return el;
 }
@@ -2139,12 +2139,15 @@ function reminderBucket(at) {
   if (at < Date.now()) return 'past';
   return (at - Date.now() < 86400000) ? 'soon' : 'future';
 }
-function renderReminderBadge(it) {
+// `inline` renders the badge as a normal flex child (for stack headers, which have
+// their own right-aligned controls) instead of the absolute top-right corner used on
+// tab/note/todo cards — avoids overlapping the stack count / intention button.
+function renderReminderBadge(it, inline = false) {
   if (!it.reminder?.at) return '';
   const b = reminderBucket(it.reminder.at);
   // Badge CSS targets `.past` and `.future`; the "soon" bucket uses the base style (no extra class).
   const cls = b === 'past' ? 'past' : (b === 'future' ? 'future' : '');
-  return `<span class="rem-badge ${cls}"><svg width="8" height="8" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M6 3v3l2 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>${fmtTimeRelative(it.reminder.at)}</span>`;
+  return `<span class="rem-badge ${cls}${inline ? ' rem-badge-inline' : ''}"><svg width="8" height="8" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M6 3v3l2 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>${fmtTimeRelative(it.reminder.at)}</span>`;
 }
 
 function attachItemSelection(el, it) {
@@ -2376,6 +2379,7 @@ function buildStack(it, parentItems, group) {
       <span class="stack-sym">${esc(it.symbol || '📚')}</span>
       <input class="stack-name" value="${esc(it.name || 'Stack')}" spellcheck="false">
       <span class="stack-cnt">${cnt}</span>
+      ${renderReminderBadge(it, true)}
       <button class="stack-intent-btn" title="Edit intention">
         <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1.5a3.6 3.6 0 013.6 3.6c0 2.2-1.5 3.2-3.1 3.8l-.2.1v1.5M6 10.8h.01" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
       </button>
@@ -3126,6 +3130,7 @@ function applySearchFilter() {
     (neg.color.length && neg.color.includes(st.dataset.color)) ||
     (neg.type.length && neg.type.includes('stack')) ||
     (neg.in.length && matchIn(neg.in, st)) ||
+    (neg.rem.length && matchRem(neg.rem, st)) ||
     (neg.text.length && (t => neg.text.some(n => t.includes(n)))(elemText(hd)))
   );
   getItemNodes().forEach(el => {
@@ -3163,7 +3168,7 @@ function applySearchFilter() {
     if (match && hasType) match = typeFilters.includes('stack');
     if (match && hasState) match = false; // a stack has no completion state
     if (match && (hasDomain || hasUrl)) match = false; // a stack has no URL
-    if (match && hasRem) match = false; // a stack never advertises a reminder (no badge)
+    if (match && hasRem) match = matchRem(remFilters, st); // a stack can carry a reminder (data-rem-at)
     if (match && hasIn) match = matchIn(inFilters, st); // scope by the stack's ancestor groups/stacks
     if (match && hasText) match = matchText(hd);
     if (match && hasNeg) match = !excludedStack(st, hd);
@@ -4882,6 +4887,7 @@ function buildLvStack(it, parentItems, group, depth) {
   wrap.className = 'lv-stack' + (it.expanded ? ' expanded' : '');
   wrap.dataset.id = it.id;
   if (it.color) wrap.dataset.color = it.color; // let color: search match list-view stacks
+  if (it.reminder?.at) wrap.dataset.remAt = it.reminder.at; // let has:reminder/reminder: match list-view stacks
 
   const hd = document.createElement('div');
   hd.className = 'lv-stack-hd';
@@ -4891,7 +4897,8 @@ function buildLvStack(it, parentItems, group, depth) {
     <span class="lv-chev"><svg width="9" height="9" viewBox="0 0 10 10"><path d="M3.5 2.5l3 2.5-3 2.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     <span class="lv-stack-sym">${esc(it.symbol || '📚')}</span>
     <span class="lv-stack-name">${esc(it.name || 'Stack')}</span>
-    <span class="lv-stack-cnt">${cnt}</span>`;
+    <span class="lv-stack-cnt">${cnt}</span>
+    ${renderReminderBadge(it, true)}`;
   hd.addEventListener('click', e => {
     if (e.target.closest('.lv-stack-sym') || e.target.closest('.item-check')) return;
     State.snapshot('Toggle stack');

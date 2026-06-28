@@ -1215,6 +1215,9 @@ body[data-show-urls="off"] .item-url { display: none; }
 }
 .rem-badge.past { background: var(--red); animation: none; }
 .rem-badge.future { animation: none; background: var(--bg4); color: var(--text2); border: 1px solid var(--border); }
+/* Inline variant for stack headers: flows in the header row instead of the absolute
+   top-right corner, so it doesn't overlap the stack count / intention button. */
+.rem-badge.rem-badge-inline { position: static; top: auto; right: auto; flex: none; }
 
 /* Note */
 .item.note { background: var(--note-bg); border-color: var(--note-bd); }

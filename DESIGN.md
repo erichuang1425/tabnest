@@ -182,8 +182,11 @@ differentiator we can market honestly.
   and `reminder:any` for "any state") narrows by reminder state — `past` = overdue,
   `soon` = due within 24h, `future` = further out. State is bucketed by the same
   `reminderBucket()` helper that styles the reminder badge, so search and the badge always
-  agree. Only tab/note/todo carry a reminder badge (stacks don't), so the operators match
-  those kinds and never a stack, keeping search ⇄ UI consistent. Comma-lists OR together
+  agree — and the bucket is recomputed at *filter* time (not cached at DOM-build time) so a
+  reminder crossing the overdue/24h threshold while the page stays open is reflected
+  immediately. Reminders can be set on any kind (tabs, notes, todos **and** stacks), so all
+  of them now render a reminder badge (stacks use an inline header variant) and all are
+  matched by the operators, keeping search ⇄ UI consistent. Comma-lists OR together
   (`reminder:past,soon`), negation works (`-has:reminder`, `-reminder:future`), archive
   results are suppressed while it's active like the other metadata operators, and it composes
   with every existing operator and free/quoted text (e.g. `type:tab has:reminder -is:done`).
