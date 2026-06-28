@@ -1,6 +1,6 @@
 # TabNest — Layout & Differentiation Brief
 
-Status: living document · Last updated: 2026-06-23 · Branch: `claude/extension-layout-research-6sonlp`
+Status: living document · Last updated: 2026-06-28 · Branch: `claude/unmerged-prs-app-dev-3xeijl`
 
 This brief captures the design direction for TabNest's layout refresh and — importantly —
 how we take *inspiration* from **Refern** and **TabExtend** while staying clearly distinct,
@@ -96,8 +96,9 @@ A deliberately distinct identity that is **neither** TabExtend's pastel-light fa
   view; ~~tag-based + **color search**~~ → **color search shipped** (`color:red` operator
   in the search bar). Refern's "14 search operators" trait → **search operators expanded**:
   `type:tab|note|todo|stack` (by kind), `is:done` / `is:open` (todo state),
-  `domain:`/`site:` + `url:` (tab hostname / URL substring), and `in:` (scope by the name of
-  a containing group/stack) now join `color:`, and any operator or word can be **negated**
+  `domain:`/`site:` + `url:` (tab hostname / URL substring), `in:` (scope by the name of
+  a containing group/stack), and `has:reminder` / `reminder:past|soon|future` (by reminder
+  state) now join `color:`, and any operator or word can be **negated**
   with a leading `-` to exclude matches. They combine freely (e.g.
   `type:tab in:work domain:github.com "pull request" -is:done`). All derived from local
   item metadata / structure — no host access. Note: **link previews / thumbnails** would require reading
@@ -175,3 +176,15 @@ differentiator we can market honestly.
   note/todo). Negative structured operators suppress archive results like the positive ones;
   negative *text* needles instead just filter out matching archive entries. Still no host
   access — purely local metadata/structure.
+- **2026-06-28** — Added the **`has:reminder`** and **`reminder:`** search operators (toward
+  Refern's "14 operators"): `has:reminder` surfaces every item that has a reminder set, and
+  `reminder:past|soon|future` (aliases `rem:`/`due:`, plus synonyms `overdue`/`today`/`later`,
+  and `reminder:any` for "any state") narrows by reminder state — `past` = overdue,
+  `soon` = due within 24h, `future` = further out. State is bucketed by the same
+  `reminderBucket()` helper that styles the reminder badge, so search and the badge always
+  agree. Only tab/note/todo carry a reminder badge (stacks don't), so the operators match
+  those kinds and never a stack, keeping search ⇄ UI consistent. Comma-lists OR together
+  (`reminder:past,soon`), negation works (`-has:reminder`, `-reminder:future`), archive
+  results are suppressed while it's active like the other metadata operators, and it composes
+  with every existing operator and free/quoted text (e.g. `type:tab has:reminder -is:done`).
+  Derived purely from the locally stored `it.reminder` timestamp — still no host access.

@@ -2101,6 +2101,10 @@ function buildItem(it, parentItems, group) {
   else if (it.type === 'todo') el = buildTodo(it, parentItems, group);
   else if (it.type === 'stack') el = buildStack(it, parentItems, group);
   else el = buildTab(it, parentItems, group);
+  // Expose reminder state for the has:reminder / reminder:<state> search operators.
+  // Only tab/note/todo carry a reminder badge (stacks don't), so we mirror that: a
+  // stack never advertises a reminder even if one is set, keeping search ⇄ UI consistent.
+  if (it.type !== 'stack' && it.reminder?.at) el.dataset.rem = reminderBucket(it.reminder.at);
   attachItemSelection(el, it);
   return el;
 }
@@ -2125,10 +2129,18 @@ function commonActs(it, extra = []) {
   return acts;
 }
 
+// Bucket a reminder timestamp into a coarse state: 'past' (overdue), 'soon'
+// (due within 24h), or 'future' (further out). Shared by the badge styling and
+// the has:reminder / reminder:<state> search operators so they classify alike.
+function reminderBucket(at) {
+  if (at < Date.now()) return 'past';
+  return (at - Date.now() < 86400000) ? 'soon' : 'future';
+}
 function renderReminderBadge(it) {
   if (!it.reminder?.at) return '';
-  const past = it.reminder.at < Date.now();
-  const cls = past ? 'past' : (it.reminder.at - Date.now() < 86400000 ? '' : 'future');
+  const b = reminderBucket(it.reminder.at);
+  // Badge CSS targets `.past` and `.future`; the "soon" bucket uses the base style (no extra class).
+  const cls = b === 'past' ? 'past' : (b === 'future' ? 'future' : '');
   return `<span class="rem-badge ${cls}"><svg width="8" height="8" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M6 3v3l2 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>${fmtTimeRelative(it.reminder.at)}</span>`;
 }
 
@@ -2969,14 +2981,17 @@ function applySearchFilter() {
   //   domain:host[,host] — filter tabs by hostname substring (alias site:)
   //   url:frag[,frag]    — filter tabs by full-URL substring
   //   in:name[,name]     — filter by the name of a containing group/stack (scope)
+  //   has:reminder       — items that have a reminder set (any state)
+  //   reminder:state     — filter by reminder state: past/overdue, soon/today, future/later
+  //                        (aliases rem:/due:); comma-lists OR together
   //   -<term>            — negate any operator or word: EXCLUDE items it matches
   //                        (e.g. -type:todo, -domain:github.com, -"in progress")
   // Everything else (bare words and quoted phrases) becomes a text needle that must
   // appear as a substring; a quoted phrase is one needle so its spaces match verbatim.
   // Each token routes into a positive (must-match, AND across families) or a negative
   // (must-NOT-match, hide if ANY negative family matches) bucket with identical shape.
-  const pos = { color: [], type: [], state: [], domain: [], url: [], in: [], text: [] };
-  const neg = { color: [], type: [], state: [], domain: [], url: [], in: [], text: [] };
+  const pos = { color: [], type: [], state: [], domain: [], url: [], in: [], rem: [], text: [] };
+  const neg = { color: [], type: [], state: [], domain: [], url: [], in: [], rem: [], text: [] };
   (raw.match(/-?"[^"]*"|\S+/g) || []).forEach(tok => {
     // A leading '-' negates the rest of the token (operator or word). A bare "-" with
     // nothing after it is treated as literal text.
@@ -3003,22 +3018,50 @@ function applySearchFilter() {
       m[1].split(',').forEach(u => { const v = u.trim(); if (v) bucket.url.push(v); });
     } else if ((m = /^in:(.+)$/.exec(tok))) {
       m[1].split(',').forEach(g => { const v = g.trim(); if (v) bucket.in.push(v); });
+    } else if ((m = /^has:(.+)$/.exec(tok))) {
+      // Presence operator. Only `reminder` is meaningful today (a tab/note/todo with a
+      // reminder set); `*` means "any reminder state". Unknown values are ignored.
+      m[1].split(',').forEach(h => {
+        const v = h.trim();
+        if (v === 'reminder' || v === 'reminders' || v === 'rem' || v === 'due') {
+          if (!bucket.rem.includes('*')) bucket.rem.push('*');
+        }
+      });
+    } else if ((m = /^(?:reminder|rem|due):(.+)$/.exec(tok))) {
+      // Filter by reminder state. Synonyms collapse to the reminderBucket() values
+      // ('past'|'soon'|'future'); `any`/`set` means "has a reminder, any state".
+      m[1].split(',').forEach(s => {
+        const v = s.trim();
+        let state = null;
+        if (v === 'past' || v === 'overdue' || v === 'late') state = 'past';
+        else if (v === 'soon' || v === 'today' || v === 'upcoming') state = 'soon';
+        else if (v === 'future' || v === 'later') state = 'future';
+        else if (v === 'any' || v === 'set' || v === 'reminder') state = '*';
+        if (state && !bucket.rem.includes(state)) bucket.rem.push(state);
+      });
     } else {
       bucket.text.push(tok);
     }
   });
   // Positive filters keep their original names so the match logic below is unchanged.
   const colorFilters = pos.color, typeFilters = pos.type, stateFilters = pos.state,
-        domainFilters = pos.domain, urlFilters = pos.url, inFilters = pos.in, textNeedles = pos.text;
+        domainFilters = pos.domain, urlFilters = pos.url, inFilters = pos.in,
+        remFilters = pos.rem, textNeedles = pos.text;
   const hasColor = colorFilters.length > 0;
   const hasType = typeFilters.length > 0;
   const hasState = stateFilters.length > 0;
   const hasDomain = domainFilters.length > 0;
   const hasUrl = urlFilters.length > 0;
   const hasIn = inFilters.length > 0;
+  const hasRem = remFilters.length > 0;
   const hasText = textNeedles.length > 0;
   const hasNeg = neg.color.length || neg.type.length || neg.state.length ||
-                 neg.domain.length || neg.url.length || neg.in.length || neg.text.length;
+                 neg.domain.length || neg.url.length || neg.in.length ||
+                 neg.rem.length || neg.text.length;
+  // An item's reminder state matches a rem filter list if it has a reminder and the
+  // list either accepts any state ('*') or names the item's specific bucket. Shared by
+  // the positive pass and negation; el carries dataset.rem only when a reminder is set.
+  const matchRem = (filters, el) => { const r = el.dataset.rem; return !!r && (filters.includes('*') || filters.includes(r)); };
   // Names of every group/stack a node is nested inside (board + list structures),
   // lowercased — powers the in:<name> scope operator. Walks ancestors only (a node isn't
   // "in" itself): board group names live in .gcol-name, board stack names in .stack-name,
@@ -3065,6 +3108,7 @@ function applySearchFilter() {
     (neg.domain.length && !!el.dataset.host && neg.domain.some(d => el.dataset.host.includes(d))) ||
     (neg.url.length && !!el.dataset.url && neg.url.some(u => el.dataset.url.includes(u))) ||
     (neg.in.length && matchIn(neg.in, el)) ||
+    (neg.rem.length && matchRem(neg.rem, el)) ||
     (neg.text.length && (t => neg.text.some(n => t.includes(n)))(elemText(el)))
   );
   // A list-view stack header is EXCLUDED similarly. A stack has no completion state, host,
@@ -3090,6 +3134,9 @@ function applySearchFilter() {
     if (match && hasDomain) { const h = el.dataset.host || ''; match = !!h && domainFilters.some(d => h.includes(d)); }
     if (match && hasUrl) { const u = el.dataset.url || ''; match = !!u && urlFilters.some(f => u.includes(f)); }
     if (match && hasIn) match = matchIn(inFilters, el);
+    // reminder state only applies to tab/note/todo (the kinds that carry a reminder badge);
+    // items without a reminder (incl. stacks, which never advertise one) can't satisfy it.
+    if (match && hasRem) match = matchRem(remFilters, el);
     if (match && hasText) match = matchText(el);
     if (match && hasNeg) match = !excludedItem(el);
     el.classList.toggle('hidden', !match);
@@ -3107,6 +3154,7 @@ function applySearchFilter() {
     if (match && hasType) match = typeFilters.includes('stack');
     if (match && hasState) match = false; // a stack has no completion state
     if (match && (hasDomain || hasUrl)) match = false; // a stack has no URL
+    if (match && hasRem) match = false; // a stack never advertises a reminder (no badge)
     if (match && hasIn) match = matchIn(inFilters, st); // scope by the stack's ancestor groups/stacks
     if (match && hasText) match = matchText(hd);
     if (match && hasNeg) match = !excludedStack(st, hd);
@@ -3146,8 +3194,8 @@ function applySearchFilter() {
   // heterogeneous archive entries); negative TEXT needles, though, just exclude matching
   // entries, so they're passed through to filter the archive result list.
   const hasNegOps = neg.color.length || neg.type.length || neg.state.length ||
-                    neg.domain.length || neg.url.length || neg.in.length;
-  const hasOps = hasColor || hasType || hasState || hasDomain || hasUrl || hasIn || hasNegOps;
+                    neg.domain.length || neg.url.length || neg.in.length || neg.rem.length;
+  const hasOps = hasColor || hasType || hasState || hasDomain || hasUrl || hasIn || hasRem || hasNegOps;
   renderArchiveSearchResults(hasText && !hasOps ? textNeedles : null, neg.text);
 }
 // Build a normalized search blob for an archive entry (group or item).
