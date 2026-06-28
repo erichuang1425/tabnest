@@ -2101,10 +2101,13 @@ function buildItem(it, parentItems, group) {
   else if (it.type === 'todo') el = buildTodo(it, parentItems, group);
   else if (it.type === 'stack') el = buildStack(it, parentItems, group);
   else el = buildTab(it, parentItems, group);
-  // Expose reminder state for the has:reminder / reminder:<state> search operators.
+  // Expose the reminder timestamp for the has:reminder / reminder:<state> search
+  // operators. We store the raw `at` (not a precomputed bucket) so the bucket is
+  // derived fresh at filter time — a reminder can cross the overdue/24h threshold
+  // while the page stays open, and we must not match against a stale bucket.
   // Only tab/note/todo carry a reminder badge (stacks don't), so we mirror that: a
   // stack never advertises a reminder even if one is set, keeping search ⇄ UI consistent.
-  if (it.type !== 'stack' && it.reminder?.at) el.dataset.rem = reminderBucket(it.reminder.at);
+  if (it.type !== 'stack' && it.reminder?.at) el.dataset.remAt = it.reminder.at;
   attachItemSelection(el, it);
   return el;
 }
@@ -3059,9 +3062,15 @@ function applySearchFilter() {
                  neg.domain.length || neg.url.length || neg.in.length ||
                  neg.rem.length || neg.text.length;
   // An item's reminder state matches a rem filter list if it has a reminder and the
-  // list either accepts any state ('*') or names the item's specific bucket. Shared by
-  // the positive pass and negation; el carries dataset.rem only when a reminder is set.
-  const matchRem = (filters, el) => { const r = el.dataset.rem; return !!r && (filters.includes('*') || filters.includes(r)); };
+  // list either accepts any state ('*') or names the item's current bucket. Shared by
+  // the positive pass and negation; el carries dataset.remAt only when a reminder is set.
+  // The bucket is computed here (not at build time) so threshold crossings while the
+  // page stays open are reflected immediately rather than matched against stale state.
+  const matchRem = (filters, el) => {
+    const at = el.dataset.remAt;
+    if (!at) return false;
+    return filters.includes('*') || filters.includes(reminderBucket(+at));
+  };
   // Names of every group/stack a node is nested inside (board + list structures),
   // lowercased — powers the in:<name> scope operator. Walks ancestors only (a node isn't
   // "in" itself): board group names live in .gcol-name, board stack names in .stack-name,
