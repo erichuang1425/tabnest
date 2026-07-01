@@ -889,7 +889,7 @@ body[data-anim="off"] .cat-tabs-wrap::after {
   cursor: pointer; user-select: none;
   flex-shrink: 0;
   background: linear-gradient(to bottom,
-    color-mix(in srgb, var(--gcol-tint, transparent) 10%, transparent),
+    color-mix(in srgb, var(--gcol-tint, transparent) 18%, transparent),
     transparent);
   /* Header layers above the scrolling cards, echoing the topbar treatment. */
   border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
@@ -910,7 +910,7 @@ body[data-anim="off"] .cat-tabs-wrap::after {
 .gcol-sym-wrap::after {
   content: ''; position: absolute; inset: 0;
   border-radius: 9px; background: var(--gcol-tint, transparent);
-  opacity: 0.14; pointer-events: none;
+  opacity: 0.2; pointer-events: none;
 }
 
 .gcol-info { flex: 1; min-width: 0; }
@@ -933,15 +933,26 @@ body[data-anim="off"] .cat-tabs-wrap::after {
 }
 .gcol-meta .todo-count.all-done { background: var(--green); color: white; border-color: transparent; }
 
-.gcol-acts { display: flex; gap: 1px; }
+/* Actions are absolutely positioned so they never reserve header width when
+   hidden — that reservation was clipping group names. They fade in over the
+   header's right edge on hover/focus, behind a short panel-colored fade. */
+.gcol-acts {
+  position: absolute; top: 9px; right: 9px;
+  display: flex; gap: 1px;
+  opacity: 0; pointer-events: none;
+  padding-left: 18px;
+  background: linear-gradient(to left, var(--panel) 60%, transparent);
+  transition: opacity var(--trans);
+}
+.gcol:hover .gcol-acts,
+.gcol-hd:focus-within .gcol-acts { opacity: 1; pointer-events: auto; }
 .gcol-btn {
   width: 26px; height: 26px;
   background: none; border: 1px solid transparent;
   color: var(--text3); cursor: pointer; border-radius: 6px;
   display: flex; align-items: center; justify-content: center;
-  opacity: 0; transition: all var(--trans);
+  transition: all var(--trans);
 }
-.gcol:hover .gcol-btn { opacity: 1; }
 .gcol-btn:hover { background: var(--bg3); color: var(--text); border-color: var(--border); }
 .gcol-btn.danger:hover { color: var(--red); }
 .gcol-btn.go:hover { color: var(--green); }
