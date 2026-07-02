@@ -6,6 +6,11 @@ Status: proposal / living document. Created: 2026-07-02.
 layout registry (`LAYOUTS` / `renderBoardView`, §2.2), a reminder aggregator
 (`collectReminders`, §2.3), and `createdAt` stamping on new items behind schema
 4 — all additive, no user-visible change beyond a deep-linkable board.
+Phase 1 (Group Pages, §4.1) has landed: the group-focus modal overlay is now a
+first-class routed page (`openGroupPage` / `renderGroupPage`) at
+`#/ws/<id>/group/<id>`, with a Workspace › Category › Group breadcrumb, real
+back/forward + reload, and an optional rich-text description (`group.readme`,
+additive). Selecting a category/workspace transparently exits the page.
 
 This document plans a set of **major** features for Tabento: spatial, animated, design-forward
 interfaces and the systems work needed to make them cohere. Every proposal here is grounded in
@@ -378,7 +383,7 @@ Each phase is independently shippable and leaves the app fully working.
 | Phase | Scope | Unlocks |
 |---|---|---|
 | **0 — Spine** ✅ | Hash router (§2.1), layout registry (§2.2), reminder aggregator (§2.3), `createdAt` on new items | Everything below; no user-visible change beyond deep-linkable board |
-| **1 — Group Pages** | §4.1 group route + shell, migrate `openGroupFocus` to it, breadcrumb + back/forward | Groups become manageable pages |
+| **1 — Group Pages** ✅ | §4.1 group route + shell, migrate `openGroupFocus` to it, breadcrumb + back/forward | Groups become manageable pages |
 | **2 — Link content** | §4.2 detail pane, additive item fields, `tag:` operator, migration | Rich per-link context |
 | **3 — Explorer + Timeline** | §3.1, §3.2, layout switcher (§7), per-category layout persistence | The headline new layouts |
 | **4 — Calendar** | §5 month/week/agenda, filter integration, drag-to-reschedule | Unified reminders surface |

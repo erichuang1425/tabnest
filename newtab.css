@@ -3822,60 +3822,80 @@ body.reorder-mode .lv-group {
   border-color: var(--border2);
 }
 
-/* ═══ GROUP FOCUS MODE ═══ */
-#group-focus-overlay {
-  position: fixed; inset: 0;
-  background: var(--bg);
-  z-index: 9997;
-  display: flex; flex-direction: column;
-  animation: fadeIn 0.18s var(--trans);
-  overflow: hidden;
-}
-#group-focus-overlay.hidden { display: none; }
-.gf-bar {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px;
-  padding: 14px 22px;
+/* ═══ BREADCRUMB BAR (Phase 1 — group pages) ═══ */
+#breadcrumb-bar {
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+  padding: 9px 22px;
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.gf-back {
-  display: flex; align-items: center; gap: 6px;
-  padding: 7px 12px;
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  color: var(--text2);
   font: 500 12.5px var(--font);
-  cursor: pointer;
-  transition: all var(--trans);
 }
-.gf-back:hover { background: var(--bg4); color: var(--text); }
-.gf-title {
-  display: flex; align-items: center; gap: 10px;
-  flex: 1; justify-content: center;
-}
-.gf-sym { font-size: 22px; }
-.gf-name { font: 700 17px var(--font); color: var(--text); letter-spacing: -0.01em; }
-.gf-cnt {
-  font-size: 11px; color: var(--text3);
-  background: var(--bg3); padding: 2px 8px; border-radius: 10px;
-}
-.gf-close {
-  width: 32px; height: 32px;
+#breadcrumb-bar.hidden { display: none; }
+.bc-back {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px; margin-right: 6px;
   background: var(--bg3); border: 1px solid var(--border); border-radius: 7px;
-  color: var(--text2); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
+  color: var(--text2); font: inherit; cursor: pointer;
   transition: all var(--trans);
 }
-.gf-close:hover { background: var(--bg4); color: var(--text); }
-.gf-canvas {
-  flex: 1;
-  overflow-y: auto;
-  display: flex; justify-content: center;
-  padding: 30px 24px 60px;
+.bc-back:hover { background: var(--bg4); color: var(--text); }
+.bc-crumb {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 8px; border-radius: 6px;
+  background: none; border: none; font: inherit;
+  color: var(--text3); cursor: pointer;
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: color var(--trans), background var(--trans);
 }
+.bc-crumb:hover { color: var(--text); background: var(--bg3); }
+.bc-crumb.current { color: var(--text); font-weight: 600; cursor: default; }
+.bc-crumb.current:hover { background: none; }
+.bc-crumb .bc-sym { font-size: 13px; }
+.bc-sep { color: var(--text3); opacity: 0.55; user-select: none; }
+
+/* ═══ GROUP PAGE (Phase 1) ═══ */
+#board.group-page-mode {
+  display: block;
+  overflow-y: auto;
+  padding: 0;
+}
+.group-page {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 26px 24px 80px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.gp-readme .gp-readme-editor {
+  min-height: 44px;
+  padding: 12px 15px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text2);
+  font: 400 13.5px/1.6 var(--font);
+  white-space: pre-wrap; word-break: break-word;
+  transition: border-color var(--trans);
+}
+.gp-readme .gp-readme-editor:focus { border-color: var(--accent); }
+/* Two classes + attribute → higher specificity than the note default, so the
+   group description shows its own placeholder instead of "Write a note…". */
+.gp-readme-editor.note-text[contenteditable="true"]:empty::before {
+  content: 'Add a description or notes for this group…';
+  font-style: normal;
+  color: var(--text3);
+}
+/* On the group page the reused bento column fills the width and the whole page
+   scrolls, rather than the column capping its own height. */
+.group-page .gcol.gcol-focused {
+  width: 100% !important;
+  max-width: 100%;
+  margin: 0;
+}
+.group-page .gcol.gcol-focused .gcol-cards {
+  max-height: none !important;
+  height: auto !important;
+}
+.group-page .gcol.gcol-focused .gcol-btn.focus { display: none; }
 .gcol.gcol-focused {
   width: min(900px, 100%) !important;
   max-width: 900px;

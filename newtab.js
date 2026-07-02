@@ -196,6 +196,14 @@ function findItem(itemId) {
 // We only mutate history via history.pushState/replaceState (which never fire
 // hashchange/popstate), and only ever *read* state on popstate/hashchange, so
 // there is no apply↔render feedback loop.
+
+// The active non-board surface. null → the board; { groupId, itemId } while a
+// group page (§4.1) is open. It lives in a module variable and is mirrored into
+// the URL by the Router, so reload and back/forward restore the open group.
+// renderBoard() consults it as its dispatch point (mirroring the layout
+// registry), so any mutation that re-renders keeps the group page showing.
+let activeGroupPage = null;
+
 const Router = (() => {
   let _ready = false;
 
@@ -237,10 +245,14 @@ const Router = (() => {
     return path + q;
   }
 
-  // The canonical route describing the current State (board surface for now).
+  // The canonical route describing the current State — the open group page when
+  // one is active, otherwise the board surface.
   function currentRoute() {
     const ws = activeWs();
     if (!ws) return null;
+    if (activeGroupPage) {
+      return { type: 'group', wsId: ws.id, groupId: activeGroupPage.groupId, itemId: activeGroupPage.itemId || null, query: {} };
+    }
     const cat = activeCat();
     const query = {};
     const mode = getViewMode();
@@ -248,16 +260,39 @@ const Router = (() => {
     return { type: 'board', wsId: ws.id, catId: cat ? cat.id : null, query };
   }
 
-  // Apply a parsed route to State (select workspace / category / layout).
-  // Returns true if anything changed. Unknown ids fall back gracefully so a
-  // stale deep link never wedges the app. Group/calendar surfaces don't exist
-  // yet, so those routes resolve to their workspace's board.
+  // Apply a parsed route to State (select workspace / category / layout, or open
+  // a group page). Returns true if anything changed. Unknown ids fall back
+  // gracefully so a stale deep link never wedges the app. The calendar surface
+  // (§5) doesn't exist yet, so that route resolves to its workspace's board.
   function apply(route) {
     if (!route) return false;
     const s = State.get();
     let changed = false;
     const ws = s.workspaces.find(w => w.id === route.wsId);
     if (ws && s.activeWsId !== ws.id) { s.activeWsId = ws.id; changed = true; }
+
+    if (route.type === 'group') {
+      // Resolve the group (searched globally); select its workspace + category
+      // so the board underneath and the breadcrumb stay coherent, then mark the
+      // group-page surface active. A stale/deleted id falls back to the board.
+      const info = route.groupId ? findGroup(route.groupId) : null;
+      if (info) {
+        if (s.activeWsId !== info.ws.id) { s.activeWsId = info.ws.id; changed = true; }
+        if (info.ws.activeCatId !== info.cat.id) { info.ws.activeCatId = info.cat.id; changed = true; }
+        const itemId = route.itemId || null;
+        if (!activeGroupPage || activeGroupPage.groupId !== info.group.id || activeGroupPage.itemId !== itemId) {
+          activeGroupPage = { groupId: info.group.id, itemId };
+          changed = true;
+        }
+      } else if (activeGroupPage) {
+        activeGroupPage = null; changed = true;
+      }
+      return changed;
+    }
+
+    // Board (and, until §5, calendar) surfaces: leave any open group page.
+    if (activeGroupPage) { activeGroupPage = null; changed = true; }
+
     const activeW = activeWs();
     if (activeW && route.type === 'board' && route.catId) {
       const cat = activeW.categories.find(c => c.id === route.catId);
@@ -2026,6 +2061,13 @@ const LAYOUT_ORDER = ['board', 'list', 'canvas'];
 // mutates state calls renderBoard() to re-render whatever layout is showing.
 function renderBoard() {
   invalidateItemCache();
+  // A group page (§4.1) is a surface that sits above the layout registry: when
+  // one is open every re-render keeps showing it. renderGroupPage() returns
+  // false if its group vanished or the user navigated away, so we fall through
+  // to the normal board in that case.
+  if (activeGroupPage && renderGroupPage()) return;
+  hideBreadcrumb();
+  document.getElementById('board').classList.remove('group-page-mode');
   const layout = LAYOUTS[getViewMode()] || LAYOUTS.board;
   layout.render();
 }
@@ -2176,7 +2218,7 @@ function buildGroupCol(g) {
       { text: g.collapsed ? 'Expand' : 'Collapse', icon: cmIcons.edit, action: () => { State.snapshot('Toggle'); g.collapsed = !g.collapsed; State.persist(); renderBoard(); } },
       { sep: true },
       { text:'Open all', icon: cmIcons.open, action: () => openGroupAll(g.id) },
-      { text:'Focus mode', icon: cmIcons.expand || cmIcons.open, action: () => openGroupFocus(g.id) },
+      { text:'Open as page', icon: cmIcons.expand || cmIcons.open, action: () => openGroupPage(g.id) },
       { text:'Duplicate', icon: cmIcons.copy, action: () => duplicateGroup(g.id) },
       { text:'Add new stack…', icon: cmIcons.stack, action: () => openModal('new-stack', { groupId: g.id }) },
     ];
@@ -2217,7 +2259,7 @@ function buildGroupCol(g) {
       if (act === 'del') deleteGroup(g.id);
       else if (act === 'dup') duplicateGroup(g.id);
       else if (act === 'open-all') openGroupAll(g.id);
-      else if (act === 'focus') openGroupFocus(g.id);
+      else if (act === 'focus') openGroupPage(g.id);
       else if (act === 'intent') openIntentEditor('group', g.id);
     });
   });
@@ -4305,60 +4347,120 @@ function bindSubs() {
 }
 
 // ════════════════════════════════════════════════════════════════
-// GROUP FOCUS MODE - expand single group into full-page view
+// GROUP PAGE (§4.1) — a group promoted from a modal overlay to a
+// first-class, deep-linkable page with a breadcrumb and real history.
 // ════════════════════════════════════════════════════════════════
-let focusedGroupId = null;
-function openGroupFocus(gId) {
+// Navigate to a group's page. This is a route change (pushState), so browser
+// back/forward and reload all work; the old openGroupFocus overlay is gone.
+function openGroupPage(gId) {
   const info = findGroup(gId);
   if (!info) return;
-  focusedGroupId = gId;
-  let overlay = document.getElementById('group-focus-overlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'group-focus-overlay';
-    document.body.appendChild(overlay);
-  }
-  overlay.innerHTML = `
-    <div class="gf-bar">
-      <button class="gf-back" id="gf-back">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 3L5 7l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Back
-      </button>
-      <div class="gf-title">
-        <span class="gf-sym">${esc(info.group.symbol || '📁')}</span>
-        <span class="gf-name">${esc(info.group.name)}</span>
-        <span class="gf-cnt">${info.group.items.length} items</span>
-      </div>
-      <button class="gf-close" id="gf-close">
-        <svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-      </button>
-    </div>
-    <div class="gf-canvas" id="gf-canvas"></div>`;
-  overlay.classList.remove('hidden');
-  document.body.style.overflow = 'hidden';
-
-  const canvas = overlay.querySelector('#gf-canvas');
-  // Build a mega column for this group only
-  const col = buildGroupCol(info.group);
-  col.classList.add('gcol-focused');
-  // Override sizing
-  col.style.width = 'min(900px, 100%)';
-  const cards = col.querySelector('.gcol-cards');
-  if (cards) {
-    cards.style.maxHeight = 'calc(100vh - 180px)';
-    cards.style.height = 'auto';
-  }
-  canvas.appendChild(col);
-
-  overlay.querySelector('#gf-back').onclick = closeGroupFocus;
-  overlay.querySelector('#gf-close').onclick = closeGroupFocus;
+  Router.navigate({ type: 'group', wsId: info.ws.id, groupId: gId, itemId: null, query: {} });
 }
-function closeGroupFocus() {
-  const overlay = document.getElementById('group-focus-overlay');
-  if (overlay) overlay.classList.add('hidden');
-  document.body.style.overflow = '';
-  focusedGroupId = null;
-  renderBoard();
+// Leave the group page, returning to the board it belongs to. A route change,
+// so it pushes a board entry and the URL/back-forward stay consistent. We let
+// Router.apply() clear activeGroupPage (nulling it here first would make apply
+// see no change and skip the re-render).
+function closeGroupPage() {
+  const ws = activeWs();
+  const cat = activeCat();
+  Router.navigate({ type: 'board', wsId: ws ? ws.id : null, catId: cat ? cat.id : null, query: {} });
+}
+
+function hideBreadcrumb() {
+  const bar = document.getElementById('breadcrumb-bar');
+  if (bar && !bar.classList.contains('hidden')) { bar.classList.add('hidden'); bar.innerHTML = ''; }
+}
+
+// Render the Workspace › Category › Group breadcrumb under the top bar. Earlier
+// crumbs are clickable and route back to the board; the trailing group crumb is
+// the current location.
+function renderBreadcrumb(ws, cat, g) {
+  const bar = document.getElementById('breadcrumb-bar');
+  if (!bar) return;
+  bar.classList.remove('hidden');
+  bar.innerHTML = '';
+
+  const back = document.createElement('button');
+  back.className = 'bc-back';
+  back.type = 'button';
+  back.title = 'Back to board';
+  back.innerHTML = `<svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M9 3L5 7l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg> Back`;
+  back.onclick = closeGroupPage;
+  bar.appendChild(back);
+
+  const crumb = (label, sym, onClick) => {
+    const b = document.createElement('button');
+    b.className = 'bc-crumb' + (onClick ? '' : ' current');
+    b.type = 'button';
+    b.innerHTML = (sym ? `<span class="bc-sym">${esc(sym)}</span>` : '') + `<span>${esc(label)}</span>`;
+    if (onClick) b.onclick = onClick; else b.setAttribute('aria-current', 'page');
+    return b;
+  };
+  const sep = () => { const s = document.createElement('span'); s.className = 'bc-sep'; s.textContent = '›'; return s; };
+
+  bar.appendChild(crumb(ws.name, ws.symbol, closeGroupPage));
+  bar.appendChild(sep());
+  bar.appendChild(crumb(cat.name, null, () => {
+    // Selecting the category returns to the board with that category active
+    // (Router.apply clears the group-page surface for a board route).
+    Router.navigate({ type: 'board', wsId: ws.id, catId: cat.id, query: {} });
+  }));
+  bar.appendChild(sep());
+  bar.appendChild(crumb(g.name, g.symbol, null));
+}
+
+// Render the active group page into #board. Returns false (leaving the board to
+// render) when the group no longer exists or the user has navigated to a
+// different workspace/category — which is how a category-tab click or a
+// workspace switch transparently exits the page without per-call-site patches.
+function renderGroupPage() {
+  const info = activeGroupPage ? findGroup(activeGroupPage.groupId) : null;
+  const cat = activeCat();
+  if (!info || !cat || info.cat.id !== cat.id || info.ws.id !== State.get().activeWsId) {
+    activeGroupPage = null;
+    return false;
+  }
+  const g = info.group;
+
+  renderBreadcrumb(info.ws, cat, g);
+
+  const $b = document.getElementById('board');
+  $b.classList.remove('list-mode', 'canvas-mode');
+  $b.classList.add('group-page-mode');
+  $b.innerHTML = '';
+
+  const page = document.createElement('div');
+  page.className = 'group-page';
+
+  // Description / README — rich text reusing the note editor (so the RT toolbar
+  // works on selection); its own placeholder overrides the note default.
+  const readme = document.createElement('div');
+  readme.className = 'gp-readme';
+  readme.innerHTML = `<div class="gp-readme-editor note-text" contenteditable="true" spellcheck="false">${g.readme || ''}</div>`;
+  const rmEd = readme.querySelector('.gp-readme-editor');
+  let rmDirty = false;
+  rmEd.addEventListener('input', () => { rmDirty = true; });
+  rmEd.addEventListener('blur', () => {
+    if (!rmDirty) return;
+    rmDirty = false;
+    const html = rmEd.innerHTML.trim();
+    if (html !== (g.readme || '')) { State.snapshot('Edit group description'); g.readme = html; State.persist(); }
+  });
+  page.appendChild(readme);
+
+  // The group's items, reusing the fully-wired bento column (drag/drop, add
+  // buttons, context menu, reminders all keep working), sized to the page.
+  const body = document.createElement('div');
+  body.className = 'gp-body';
+  const col = buildGroupCol(g);
+  col.classList.add('gcol-focused');
+  body.appendChild(col);
+  page.appendChild(body);
+
+  $b.appendChild(page);
+  applySearchFilter();
+  return true;
 }
 // ════════════════════════════════════════════════════════════════
 // FLOATING TOOL WIDGETS - pop tools out as draggable mini windows
@@ -5000,7 +5102,7 @@ function buildLvGroup(g) {
   hd.querySelectorAll('.lv-act-btn').forEach(btn => btn.addEventListener('click', async (e) => {
     e.stopPropagation();
     const act = btn.dataset.act;
-    if (act === 'focus') openGroupFocus(g.id);
+    if (act === 'focus') openGroupPage(g.id);
     else if (act === 'open-all') openGroupAll(g.id);
     else if (act === 'add-tab') {
       const [t] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -7023,6 +7125,11 @@ function bindStatic() {
     else if (e.key === 's' && !inField) { e.preventDefault(); document.getElementById('tab-filter').focus(); }
     else if (e.key === '?' && !inField && !e.ctrlKey && !e.metaKey) { e.preventDefault(); openCheatsheet(); }
     else if (e.key === 'Escape') {
+      // Snapshot which layered overlays were open *before* we start closing
+      // them, so a single Escape only pops the topmost one — not the group page
+      // sitting beneath a modal/menu/tool overlay.
+      const _escBlockers = ['modal-overlay','settings-drawer','ws-grid-overlay','ws-list','emoji-picker','import-overlay','cheatsheet-overlay','quota-overlay','tour-overlay','pomo-overlay','fin-overlay','habit-overlay','water-overlay','books-overlay','goals-overlay','workout-overlay','subs-overlay','tools-hub'];
+      const _overlayWasOpen = _escBlockers.some(id => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); });
       toggleSearchBar(false);
       closeModal();
       const _d = document.getElementById('settings-drawer');
@@ -7055,8 +7162,9 @@ function bindStatic() {
       if (_qf && !_qf.classList.contains('hidden')) closeStorageFull();
       const tourEl = document.getElementById('tour-overlay');
       if (tourEl && !tourEl.classList.contains('hidden')) endTour(true);
-      const focusEl = document.getElementById('group-focus-overlay');
-      if (focusEl && !focusEl.classList.contains('hidden')) closeGroupFocus();
+      // Leave the group page only when it's the topmost surface and the user
+      // isn't mid-edit (e.g. typing in the description).
+      if (activeGroupPage && !inField && !_overlayWasOpen) closeGroupPage();
       if (selectedTabIds.size) { selectedTabIds.clear(); lastClickedTabId = null; updateSelectedBadge(); renderOpenTabs(); }
       // clearItemSelection() resets the selection, the sticky mode, the body
       // class, and the button — so it covers an empty-but-active select mode too.
